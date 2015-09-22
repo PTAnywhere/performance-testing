@@ -24,14 +24,20 @@ You can install them using the _requirements.txt_ file in the following way:
 Usage
 -----
 
-Follow these steps:
+Go to the top package (```cd ptdockertest```) and follow these steps:
 
 1. __Prepare__ benchmark.
-    ```cd src/testptdocker; python prepare_database.py```
+```
+    python prepare_database.py [-db /tmp/benchmark.db]
+```
 1. __Run__ benchmark.
-    ```cd src/testptdocker; python run_benchmark.py [-test=testId] [-log=/tmp/benchmark.log]```
+```
+python run_benchmark.py [-db /tmp/benchmark.db] [-log /tmp/benchmark.log] testId
+```
 1. Generate __plots__
-    ```cd src/testptdocker; python generate_plots.py [-output=/tmp/plots]```
+```
+python generate_plots.py [-db /tmp/benchmark.db] [-output /tmp/plots] testId
+```
 
 
 Acknowledgements
