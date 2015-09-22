@@ -28,7 +28,7 @@ Go to the top package (```cd ptdockertest```) and follow these steps:
 
 1. __Prepare__ benchmark.
 ```
-    python prepare_database.py [-db /tmp/benchmark.db]
+    python prepare_benchmark.py [-db /tmp/benchmark.db]
 ```
 1. __Run__ benchmark.
 ```
