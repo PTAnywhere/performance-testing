@@ -7,7 +7,7 @@ Script to run benchmarks.
 import logging
 from argparse import ArgumentParser
 from gateway import DockerClient
-from models import PerformanceTestDAO, Test
+from models import PerformanceTestDAO, Test, Run, Container
 
 
 def create_run(session):
