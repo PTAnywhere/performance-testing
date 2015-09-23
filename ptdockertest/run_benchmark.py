@@ -25,6 +25,13 @@ def create_container(session, container, run):
     session.commit()
     return c
 
+def run_and_measure(container_id, docker_client, thread_list, init_barrier, save_barrier, end_barrier):
+    benchmark = RunningContainer(container_id, docker_client)
+    args = (benchmark, init_barrier, save_barrier, end_barrier)
+    thread = Thread(target=run_benchmark, args=args, daemon=True)
+    thread.start()
+    thread_list.append(thread)
+    return benchmark
 
 def main(docker_url, database_file, log_file, testId):
     logging.basicConfig(filename=log_file,level=logging.DEBUG)
@@ -45,14 +52,11 @@ def main(docker_url, database_file, log_file, testId):
             container = docker.create_container(test.image_id)
             cont = create_container(session, container, run)
             logging.info('Container "%s" created.' % cont.container_id)
-            benchmark = RunningContainer(cont.container_id, docker)
-            args = (benchmark, init_barrier, save_barrier, end_barrier)
-            thread = Thread(target=run_benchmark, args=args, daemon=True)
-            thread.start()
-            threads.append(thread)
-
+            benchmark = run_and_measure(cont.container_id, docker, threads,
+                                        init_barrier, save_barrier, end_barrier)
         for thread in threads:
             thread.join()
+        logging.info('Run finished.')
 
 
 def entry_point():
