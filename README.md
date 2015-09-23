@@ -26,15 +26,15 @@ Usage
 
 Go to the top package (```cd ptdockertest```) and follow these steps:
 
-1. __Prepare__ benchmark.
+* __Prepare__ benchmark.
 ```
 python prepare_benchmark.py [-db /tmp/benchmark.db]
 ```
-1. __Run__ benchmark.
+* __Run__ benchmark.
 ```
 python run_benchmark.py [-db /tmp/benchmark.db] [-log /tmp/benchmark.log] testId
 ```
-1. Generate __plots__
+* Generate __plots__
 ```
 python generate_plots.py [-db /tmp/benchmark.db] [-output /tmp/plots] testId
 ```
