@@ -4,17 +4,19 @@ Created on 23/09/2015
 Benchark: run container, measure and close.
 """
 
+import logging
+
 class RunningContainer(object):
     def __init__(self, container_id, docker_client):
         self.container_id = container_id
         self.docker_client = docker_client
-        print('Creation')
 
     def start(self):
-        print('Running')
+        logging.info('Running container "%s".' % self.container_id)
 
     def save_stats(self):
-        print('Finishing')
+        logging.info('Measuring container "%s".' % self.container_id)
+
 
 """
 Run container, measure it and close it.
