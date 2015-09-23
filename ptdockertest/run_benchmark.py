@@ -6,8 +6,11 @@ Script to run benchmarks.
 
 import logging
 from argparse import ArgumentParser
+from threading import Thread, Barrier
 from gateway import DockerClient
 from models import PerformanceTestDAO, Test, Run, Container
+from benchmark import RunningContainer
+from benchmark import run as run_benchmark
 
 
 def create_run(session, test):
@@ -22,6 +25,7 @@ def create_container(session, container, run):
     session.commit()
     return c
 
+
 def main(docker_url, database_file, log_file, testId):
     logging.basicConfig(filename=log_file,level=logging.DEBUG)
     dao = PerformanceTestDAO(database_file)
@@ -33,10 +37,22 @@ def main(docker_url, database_file, log_file, testId):
     for _ in range(test.repetitions):
         logging.info('Create repetition with %d containers.' % test.number_of_containers)
         run = create_run(session, test)
+        init_barrier = Barrier(test.number_of_containers)
+        save_barrier = Barrier(test.number_of_containers)
+        end_barrier = Barrier(test.number_of_containers)
+        threads = []
         for _ in range(test.number_of_containers):
             container = docker.create_container(test.image_id)
             cont = create_container(session, container, run)
             logging.info('Container "%s" created.' % cont.container_id)
+            benchmark = RunningContainer(cont.container_id, docker)
+            args = (benchmark, init_barrier, save_barrier, end_barrier)
+            thread = Thread(target=run_benchmark, args=args, daemon=True)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
 
 
 def entry_point():

@@ -61,7 +61,6 @@ class CreationTime(Base):
 class PerformanceTestDAO(object):
     def __init__(self, database_path):
         database_url = 'sqlite:///' + database_path
-        print 'Creating database "%s"...' % database_url
         engine = create_engine(database_url)
         self._create_database_if_not_exist(database_path, engine)
         Base.metadata.bind = engine
@@ -70,6 +69,7 @@ class PerformanceTestDAO(object):
 
     def _create_database_if_not_exist(self, database_path, engine):
         if not os.path.isfile(database_path):
+            print('Creating database "%s"...' % database_url)
             # Create all tables in the engine. This is equivalent to "Create Table"
             # statements in raw SQL.
             Base.metadata.create_all(engine)
