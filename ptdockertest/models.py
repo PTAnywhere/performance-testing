@@ -1,0 +1,71 @@
+"""
+Created on 23/09/2015
+@author: Aitor Gomez Goiri <aitor.gomez-goiri@open.ac.uk>
+Models of the database.
+"""
+
+import os.path
+from datetime import datetime
+from sqlalchemy import create_engine
+from sqlalchemy.orm import relationship
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+
+
+Base = declarative_base()
+
+
+class Test(Base):
+    __tablename__ = 'test'
+    id = Column(Integer, primary_key=True)
+    image_id = Column(String(250), nullable=False)  # Docker image ID
+    number_of_containers = Column(Integer)  # Number of containers to create in the test
+    repetitions = Column(Integer)  # Times the test will be repeated
+    runs = relationship('Run', backref="test")
+
+class Run(Base):
+    __tablename__ = 'run'
+    id = Column(Integer, primary_key=True)
+    test_id = Column(Integer, ForeignKey('test.id'))
+    starts = Column(DateTime, default=datetime.now)
+    containers = relationship('Container', backref="run")
+
+class Container(Base):
+    __tablename__ = 'container'
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, ForeignKey('run.id'))
+    container_id = Column(String(250))  # Docker ID
+    disk = relationship('DiskRequired', uselist=False, backref='container')  # One to one
+    memory = relationship('MemoryRequired', uselist=False, backref='container')  # One to one
+    creation_time = relationship('CreationTime', uselist=False, backref='container')  # One to one
+
+class DiskRequired(Base):
+    __tablename__ = 'disk'
+    id = Column(Integer, primary_key=True)
+    container_id = Column(Integer, ForeignKey('container.id'))
+    size = Column(Integer)  # In MB?
+
+class MemoryRequired(Base):
+    __tablename__ = 'memory'
+    id = Column(Integer, primary_key=True)
+    container_id = Column(Integer, ForeignKey('container.id'))
+    size = Column(Integer)  # In MB?
+
+class CreationTime(Base):
+    __tablename__ = 'creation'
+    id = Column(Integer, primary_key=True)
+    container_id = Column(Integer, ForeignKey('container.id'))
+    startup_time = Column(Integer)  # In ms?
+
+
+def createDatabaseIfNotExist(database_path):
+    if not os.path.isfile(database_path):
+        database_url = 'sqlite:///' + database_path
+        print 'Creating database "%s"...' % database_url
+        # Create an engine that stores data in the local directory's
+        # sqlalchemy_example.db file.
+        engine = create_engine(database_url)
+
+        # Create all tables in the engine. This is equivalent to "Create Table"
+        # statements in raw SQL.
+        Base.metadata.create_all(engine)

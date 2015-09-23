@@ -5,9 +5,10 @@ Script to create database.
 """
 
 from argparse import ArgumentParser
+from models import createDatabaseIfNotExist
 
 def main(database_file):
-    print "Creating database '%s'..." % database_file
+    createDatabaseIfNotExist(database_file)
 
 def entry_point():
     parser = ArgumentParser(description='Create database and create data for the benchmark.')
