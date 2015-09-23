@@ -5,10 +5,14 @@ Script to create database.
 """
 
 from argparse import ArgumentParser
-from models import createDatabaseIfNotExist
+from models import PerformanceTestDAO, Test
 
 def main(database_file):
-    createDatabaseIfNotExist(database_file)
+    dao = PerformanceTestDAO(database_file)
+    session = dao.create_session()
+    test = Test(image_id='packettracer', number_of_containers=5, repetitions=1)
+    session.add(test)
+    session.commit()
 
 def entry_point():
     parser = ArgumentParser(description='Create database and create data for the benchmark.')

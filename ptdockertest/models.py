@@ -7,7 +7,7 @@ Models of the database.
 import os.path
 from datetime import datetime
 from sqlalchemy import create_engine
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy import Column, ForeignKey, Integer, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -58,14 +58,21 @@ class CreationTime(Base):
     startup_time = Column(Integer)  # In ms?
 
 
-def createDatabaseIfNotExist(database_path):
-    if not os.path.isfile(database_path):
+class PerformanceTestDAO(object):
+    def __init__(self, database_path):
         database_url = 'sqlite:///' + database_path
         print 'Creating database "%s"...' % database_url
-        # Create an engine that stores data in the local directory's
-        # sqlalchemy_example.db file.
         engine = create_engine(database_url)
+        self._create_database_if_not_exist(database_path)
+        Base.metadata.bind = engine
+        self.session_maker = sessionmaker(bind=engine)
 
-        # Create all tables in the engine. This is equivalent to "Create Table"
-        # statements in raw SQL.
-        Base.metadata.create_all(engine)
+
+    def _create_database_if_not_exist(self, database_path):
+        if not os.path.isfile(database_path):
+            # Create all tables in the engine. This is equivalent to "Create Table"
+            # statements in raw SQL.
+            Base.metadata.create_all(engine)
+
+    def create_session(self):
+        return self.session_maker()
