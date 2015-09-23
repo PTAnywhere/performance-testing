@@ -10,6 +10,19 @@ from gateway import DockerClient
 from models import PerformanceTestDAO, Test
 
 
+def create_run(session):
+    run = Run(image_id='packettracer', number_of_containers=5, repetitions=1)
+    run.test = test
+    session.add(run)
+    session.commit()
+    return run
+
+def create_container(container, run):
+    c = Container(container_id=container.get('Id'), run=run)
+    session.add(c)
+    session.commit()
+    return c
+
 def main(docker_url, database_file, log_file, testId):
     logging.basicConfig(filename=log_file,level=logging.DEBUG)
     dao = PerformanceTestDAO(database_file)
@@ -20,9 +33,11 @@ def main(docker_url, database_file, log_file, testId):
     logging.info('Running test %d' % test.id)
     for _ in range(test.repetitions):
         logging.info('Create repetition with %d containers.' % test.number_of_containers)
+        run = create_run(session)
         for _ in range(test.number_of_containers):
             container = docker.create_container(test.image_id)
-            logging.info('Container "%s" created.' % container)
+            cont = create_container(container, run)
+            logging.info('Container "%s" created.' % cont.container_id)
 
 
 def entry_point():
