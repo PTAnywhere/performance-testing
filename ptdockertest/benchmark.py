@@ -12,11 +12,17 @@ class RunningContainer(object):
         self.docker_client = docker_client
 
     def start(self):
-        logging.info('Running container "%s".' % self.container_id)
+        response = self.docker_client.start(self.container_id)
+        logging.info('Running container "%s".\n\t%s' % (self.container_id, response))
 
     def save_stats(self):
+        stats_obj = self.docker_client.stats(self.container_id)
         logging.info('Measuring container "%s".' % self.container_id)
+        print(next(stats_obj))
 
+    def stop(self):
+        response = self.docker_client.stop(self.container_id)
+        logging.info('Stopping container "%s".\n\t%s' % (self.container_id, response))
 
 """
 Run container, measure it and close it.
@@ -36,3 +42,4 @@ def run(benchmark, init_barrier, save_barrier, end_barrier):
     save_barrier.wait()
     benchmark.save_stats()
     end_barrier.wait()
+    benchmark.stop()
