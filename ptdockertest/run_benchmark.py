@@ -26,9 +26,9 @@ def create_container(session, container, run):
     session.commit()
     return c
 
-def run_and_measure(container_id, docker_client, thread_list, init_barrier, save_barrier, end_barrier):
+def run_and_measure(container_id, docker_client, dao, thread_list, init_barrier, save_barrier, end_barrier):
     benchmark = RunningContainer(container_id, docker_client)
-    args = (benchmark, init_barrier, save_barrier, end_barrier)
+    args = (benchmark, dao, init_barrier, save_barrier, end_barrier)
     thread = Thread(target=run_benchmark, args=args)
     thread.daemon = True
     thread.start()
@@ -36,7 +36,8 @@ def run_and_measure(container_id, docker_client, thread_list, init_barrier, save
     return benchmark
 
 def main(docker_url, database_file, log_file, testId):
-    logging.basicConfig(filename=log_file,level=logging.DEBUG)
+    FORMAT = '%(asctime)-15s %(message)s'
+    logging.basicConfig(filename=log_file,level=logging.DEBUG, format=FORMAT)
     dao = PerformanceTestDAO(database_file)
     session = dao.create_session()
     test = session.query(Test).first()
@@ -54,7 +55,7 @@ def main(docker_url, database_file, log_file, testId):
             container = docker.create_container(image=test.image_id)
             cont = create_container(session, container, run)
             logging.info('Container "%s" created.' % cont.container_id)
-            benchmark = run_and_measure(cont.container_id, docker, threads,
+            benchmark = run_and_measure(cont.container_id, docker, dao, threads,
                                         init_barrier, save_barrier, end_barrier)
         for thread in threads:
             thread.join()
