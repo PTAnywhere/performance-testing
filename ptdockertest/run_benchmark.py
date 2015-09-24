@@ -6,7 +6,8 @@ Script to run benchmarks.
 
 import logging
 from argparse import ArgumentParser
-from threading import Thread, Barrier
+from threading import Thread
+from threading3 import Barrier
 from docker import Client
 from models import PerformanceTestDAO, Test, Run, Container
 from benchmark import RunningContainer
@@ -28,7 +29,8 @@ def create_container(session, container, run):
 def run_and_measure(container_id, docker_client, thread_list, init_barrier, save_barrier, end_barrier):
     benchmark = RunningContainer(container_id, docker_client)
     args = (benchmark, init_barrier, save_barrier, end_barrier)
-    thread = Thread(target=run_benchmark, args=args, daemon=True)
+    thread = Thread(target=run_benchmark, args=args)
+    thread.daemon = True
     thread.start()
     thread_list.append(thread)
     return benchmark
