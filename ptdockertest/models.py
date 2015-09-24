@@ -4,6 +4,7 @@ Created on 23/09/2015
 Models of the database.
 """
 
+import logging
 import os.path
 from datetime import datetime
 from sqlalchemy import create_engine
@@ -69,7 +70,7 @@ class PerformanceTestDAO(object):
 
     def _create_database_if_not_exist(self, database_path, engine):
         if not os.path.isfile(database_path):
-            print('Creating database "%s"...' % database_url)
+            logging.info('Creating database "%s"...' % database_path)
             # Create all tables in the engine. This is equivalent to "Create Table"
             # statements in raw SQL.
             Base.metadata.create_all(engine)
