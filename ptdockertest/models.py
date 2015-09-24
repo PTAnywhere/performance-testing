@@ -29,21 +29,22 @@ class Run(Base):
     id = Column(Integer, primary_key=True)
     test_id = Column(Integer, ForeignKey('test.id'))
     starts = Column(DateTime, default=datetime.now)
-    containers = relationship('Container', backref="run")
+    containers = relationship('Container', backref='run')
+    disk = relationship('DiskRequired', uselist=False, backref='run')
 
 class Container(Base):
     __tablename__ = 'container'
     id = Column(Integer, primary_key=True)
     run_id = Column(Integer, ForeignKey('run.id'))
     container_id = Column(String(250))  # Docker ID
-    disk = relationship('DiskRequired', uselist=False, backref='container')  # One to one
+    cpu = relationship('CpuRequired', uselist=False, backref='container')  # One to one
     memory = relationship('MemoryRequired', uselist=False, backref='container')  # One to one
     creation_time = relationship('CreationTime', uselist=False, backref='container')  # One to one
 
 class DiskRequired(Base):
     __tablename__ = 'disk'
     id = Column(Integer, primary_key=True)
-    container_id = Column(Integer, ForeignKey('container.id'))
+    run_id = Column(Integer, ForeignKey('run.id'))
     size = Column(Integer)  # In MB?
 
 class MemoryRequired(Base):
@@ -57,6 +58,12 @@ class CreationTime(Base):
     id = Column(Integer, primary_key=True)
     container_id = Column(Integer, ForeignKey('container.id'))
     startup_time = Column(Integer)  # In ms?
+
+class CpuRequired(Base):
+    __tablename__ = 'cpu'
+    id = Column(Integer, primary_key=True)
+    container_id = Column(Integer, ForeignKey('container.id'))
+    total_cpu = Column(Integer)  # Which units??
 
 
 class PerformanceTestDAO(object):
