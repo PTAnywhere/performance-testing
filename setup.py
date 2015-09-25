@@ -22,12 +22,12 @@ setup(name="ptdockertest",
       # license = "http://www.apache.org/licenses/LICENSE-2.0",
       platforms=["any"],
       packages=["ptdockertest"],
-      install_requires=["docker-py", "SQLAlchemy"],
+      install_requires=["docker-py", "SQLAlchemy", "humanfriendly"],
       entry_points={
-          'console_scripts': [
-            'prepare-benchmark = ptdockertest.prepare_benchmark:entry_point',
-            'run-benchmark = ptdockertest.run_benchmark:entry_point',
-            'generate-plots = ptdockertest.generate_plots:entry_point',
+          "console_scripts": [
+            "prepare-benchmark = ptdockertest.prepare_benchmark:entry_point",
+            "run-benchmark = ptdockertest.run_benchmark:entry_point",
+            "generate-plots = ptdockertest.generate_plots:entry_point",
           ],
       },
 )

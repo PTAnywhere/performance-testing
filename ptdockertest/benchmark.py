@@ -4,6 +4,7 @@ Created on 23/09/2015
 Benchark: run container, measure and close.
 """
 
+import os
 import time
 import logging
 from models import CpuRequired, MemoryRequired, CreationTime
@@ -44,6 +45,8 @@ class RunningContainer(object):
     def stop(self):
         response = self.docker_client.stop(self.container_id)
         logging.info('Stopping container "%s".\n\t%s' % (self.container_id, response))
+
+
 
 """
 Run container, measure it and close it.
