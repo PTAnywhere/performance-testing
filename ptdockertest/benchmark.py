@@ -40,9 +40,9 @@ class RunMeasures(object):
         logging.info('Additional disk that Docker demanded (measured with docker.info()): ' + humanfriendly.format_size(info_measure) + '.')
         logging.info('Additional disk that Docker demanded (measured with du): ' + humanfriendly.format_size(du_measure) + '.')
         difference = du_measure - info_measure
-        if difference>1:  # More than 1KB of difference
+        if difference>1024:  # More than 1KB of difference
             logging.warning('du measures %s more than docker.info().' % humanfriendly.format_size(difference))
-        elif difference<1:
+        elif difference<-1024:  # Less than 1MB of difference
             logging.warning('du measures %s less than docker.info().' % humanfriendly.format_size(difference*-1))
 
     def _save_disk_size(self, session, run_id, size):
