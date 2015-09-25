@@ -71,8 +71,8 @@ class RunningContainer(object):
         self.elapsed = time.time() - start
         logging.info('Running container "%s".\n\t%s' % (self.container_id, response))
 
-    def _save_cpu(self, session, total_cpu):
-        c = CpuRequired(container_id=self.container_id, total_cpu=total_cpu)
+    def _save_cpu(self, session, total_cpu, percentual_cpu):
+        c = CpuRequired(container_id=self.container_id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
         session.add(c)
 
     def _save_memory(self, session, max_usage):
@@ -87,7 +87,9 @@ class RunningContainer(object):
         stats_obj = self.docker_client.stats(self.container_id, decode=True)
         logging.info('Measuring container "%s".' % self.container_id)
         measure = next(stats_obj)
-        self._save_cpu(session, measure['cpu_stats']['cpu_usage']['total_usage'])
+        total_usage = measure['cpu_stats']['cpu_usage']['total_usage']
+        percentual_usage = total_usage * 100.0 / measure['cpu_stats']['system_cpu_usage']
+        self._save_cpu(session, total_usage, percentual_usage)
         self._save_memory(session, measure['memory_stats']['max_usage'])
         self._save_start_time(session)
         session.commit()

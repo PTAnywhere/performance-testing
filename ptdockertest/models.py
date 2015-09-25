@@ -9,7 +9,7 @@ import os.path
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime
+from sqlalchemy import Column, ForeignKey, Integer, Float, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
 
@@ -63,7 +63,8 @@ class CpuRequired(Base):
     __tablename__ = 'cpu'
     id = Column(Integer, primary_key=True)
     container_id = Column(Integer, ForeignKey('container.id'))
-    total_cpu = Column(Integer)  # Which units??
+    total_cpu = Column(Integer)  # nanoseconds?
+    percentual_cpu = Column(Float)
 
 
 class PerformanceTestDAO(object):
