@@ -1,6 +1,6 @@
 # Source: http://stackoverflow.com/questions/26622745/implementing-barrier-in-python2-7
 
-from threading import Thread,Semaphore
+from threading import Semaphore
 
 
 class Barrier(object):
