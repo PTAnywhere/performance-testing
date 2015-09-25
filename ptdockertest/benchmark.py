@@ -1,16 +1,66 @@
 """
 Created on 23/09/2015
 @author: Aitor Gomez Goiri <aitor.gomez-goiri@open.ac.uk>
-Benchark: run container, measure and close.
+Benchmark: run container, measure and close.
 """
 
 import os
 import time
 import logging
-from models import CpuRequired, MemoryRequired, CreationTime
+import subprocess
+import humanfriendly
+from models import CpuRequired, DiskRequired, MemoryRequired, CreationTime
+
+
+class RunMeasures(object):
+    """
+    It takes measures at run-level (differences between before and after a run) and stores them.
+    """
+    def __init__(self, docker_client):
+        self.docker = docker_client
+        self.init_size = self._get_disk_size(docker_client)
+        self.init_size_du = self._get_disk_size_du(docker_client)
+
+    def _get_disk_size(self, docker_client):
+        """Returns data used by Docker in bytes."""
+        # docker.info() returns an awful data structure...
+        for field in docker_client.info()['DriverStatus']:
+            if field[0]=='Data Space Used':
+                return humanfriendly.parse_size(field[1])  # Value in bytes
+        logging.error('"Data Space Used" field was not found in the data returned by Docker.')
+
+    def _get_disk_size_du(self, docker_client):
+        """Returns in Docker's root directory size in KBs."""
+         # This function requires you to run the script as sudo
+        directory = docker_client.info()['DockerRootDir']
+        ret = subprocess.check_output(['sudo', 'du', '-sk', directory])
+        return int(ret.split()[0]) # Value in KBs
+
+    def _log_measure_comparison(self, info_measure, du_measure):
+        logging.info('Additional disk that Docker demanded (measured with docker.info()): ' + humanfriendly.format_size(info_measure) + '.')
+        logging.info('Additional disk that Docker demanded (measured with du): ' + humanfriendly.format_size(du_measure) + '.')
+        difference = du_measure - info_measure
+        if difference>1:  # More than 1KB of difference
+            logging.warning('du measures %s more than docker.info().' % humanfriendly.format_size(difference))
+        elif difference<1:
+            logging.warning('du measures %s less than docker.info().' % humanfriendly.format_size(difference*-1))
+
+    def _save_disk_size(self, session, run_id, size):
+        d = DiskRequired(run_id=run_id, size=size)
+        session.add(d)
+        session.commit()
+
+    def save(self, session, run_id):
+        folder_size_increase = self._get_disk_size(self.docker) - self.init_size
+        folder_size_increase_du = self._get_disk_size_du(self.docker) - self.init_size_du
+        self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
+        self._save_disk_size(session, run_id, folder_size_increase)  
 
 
 class RunningContainer(object):
+    """
+    It starts a container, takes measures and saves them.
+    """
     def __init__(self, container_id, docker_client):
         self.container_id = container_id
         self.docker_client = docker_client

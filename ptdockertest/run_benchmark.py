@@ -5,14 +5,12 @@ Script to run benchmarks.
 """
 
 import logging
-from subprocess import check_output
-import humanfriendly
 from argparse import ArgumentParser
 from threading import Thread
 from threading3 import Barrier
 from docker import Client
-from models import PerformanceTestDAO, Test, Run, Container, DiskRequired
-from benchmark import RunningContainer
+from models import PerformanceTestDAO, Test, Run, Container
+from benchmark import RunMeasures, RunningContainer
 from benchmark import run as run_benchmark
 
 
@@ -27,25 +25,6 @@ def create_container(session, container, run):
     session.add(c)
     session.commit()
     return c
-
-def get_disk_size(docker_client):
-    # docker.info() returns an awful data structure...
-    for field in docker_client.info()['DriverStatus']:
-        if field[0]=='Data Space Used':
-            print field[1]
-            return humanfriendly.parse_size(field[1])  # Value in bytes
-    logging.error('"Data Space Used" field was not found in the data returned by Docker.')
-
-def get_disk_size_du(docker_client):  # This function requires you to run the script as root
-    directory = docker_client.info()['DockerRootDir']
-    ret = check_output(['sudo', 'du', '-sk', directory])
-    return int(ret.split()[0]) # Value in KBs
-    
-
-def save_disk_size(session, run_id, size):
-    d = DiskRequired(run_id=run_id, size=size)
-    session.add(d)
-    session.commit()
 
 def run_and_measure(container_id, docker_client, dao, thread_list, init_barrier, save_barrier, end_barrier):
     benchmark = RunningContainer(container_id, docker_client)
@@ -68,7 +47,7 @@ def main(docker_url, database_file, log_file, testId):
     for _ in range(test.repetitions):
         logging.info('Create repetition with %d containers.' % test.number_of_containers)
         run = create_run(session, test)
-        init_folder_size = get_disk_size_du(docker)
+        run_measures = RunMeasures(docker)
         init_barrier = Barrier(test.number_of_containers)
         save_barrier = Barrier(test.number_of_containers)
         end_barrier = Barrier(test.number_of_containers)
@@ -83,8 +62,7 @@ def main(docker_url, database_file, log_file, testId):
             thread.join()
 
         # while they are running container consume less disk
-        folder_size_increase = get_disk_size_du(docker) - init_folder_size
-        save_disk_size(session, run.id, folder_size_increase)
+        run_measures.save(session, run.id)
 
         logging.info('Run finished.')
 
