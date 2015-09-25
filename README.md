@@ -40,6 +40,12 @@ python run_benchmark.py [-db /tmp/benchmark.db] [-log /tmp/benchmark.log] testId
 python generate_plots.py [-db /tmp/benchmark.db] [-output /tmp/plots] testId
 ```
 
+Results
+-------
+
+The results of the tests made using this project will be published in [this website](http://ptanywhere.github.io/performance-testing/).
+For updated results, check it periodically.
+
 
 Acknowledgements
 ----------------
