@@ -22,7 +22,7 @@ setup(name="ptdockertest",
       # license = "http://www.apache.org/licenses/LICENSE-2.0",
       platforms=["any"],
       packages=["ptdockertest"],
-      install_requires=["docker-py", "SQLAlchemy", "humanfriendly"],
+      install_requires=["docker-py", "SQLAlchemy", "humanfriendly", "numpy"],
       entry_points={
           "console_scripts": [
             "prepare-benchmark = ptdockertest.prepare_benchmark:entry_point",
