@@ -4,9 +4,11 @@ Created on 22/09/2015
 Script to run benchmarks.
 """
 
+import time
 import logging
 from argparse import ArgumentParser
 from threading import Thread
+from humanfriendly import Spinner, Timer
 from threading3 import Barrier
 from docker import Client
 from models import PerformanceTestDAO, Test, Run, Container
@@ -35,6 +37,14 @@ def run_and_measure(container_id, docker_id, docker_client, dao, thread_list, in
     thread_list.append(thread)
     return benchmark
 
+def wait_for_stats(seconds, start_barrier, end_barrier):
+    start_barrier.wait()
+    with Spinner(label="Waiting", total=5) as spinner:
+        for progress in range(seconds):  # Update each second
+            spinner.step(progress)
+            time.sleep(1)
+        end_barrier.wait()
+
 def main(docker_url, database_file, log_file, testId):
     FORMAT = '%(asctime)-15s %(message)s'
     logging.basicConfig(filename=log_file,level=logging.DEBUG, format=FORMAT)
@@ -48,8 +58,8 @@ def main(docker_url, database_file, log_file, testId):
         logging.info('Create repetition with %d containers.' % test.number_of_containers)
         run = create_run(session, test)
         run_measures = RunMeasures(docker)
-        init_barrier = Barrier(test.number_of_containers)
-        save_barrier = Barrier(test.number_of_containers)
+        init_barrier = Barrier(test.number_of_containers + 1)
+        save_barrier = Barrier(test.number_of_containers + 1)
         end_barrier = Barrier(test.number_of_containers)
         threads = []
         benchmarks = []
@@ -59,14 +69,15 @@ def main(docker_url, database_file, log_file, testId):
             logging.info('Container "%s" created.' % cont.docker_id)
             benchmarks.append(run_and_measure(cont.id, cont.docker_id, docker, dao, threads,
                                         init_barrier, save_barrier, end_barrier))
+        wait_for_stats(5, init_barrier, save_barrier)
         for thread in threads:
             thread.join()
 
         # while they are running container consume less disk
         run_measures.save(session, run.id)
 
-        for benchmark in benchmarks:
-            benchmark.remove()
+        #for benchmark in benchmarks:
+        #    benchmark.remove()
 
         logging.info('Run finished.')
 
