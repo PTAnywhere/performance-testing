@@ -8,9 +8,49 @@
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/1.0.2/Chart.min.js"></script>
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/1.0.2/Chart.min.js"></script>
     <script src="Chart.Scatter.min.js"></script>
+    <script>
+      var defaultLineChart = (function () {
+          function createChart(canvasId, data) {
+            var ctx = document.getElementById(canvasId).getContext("2d");
+            var data = {
+              datasets: [{
+                  label: "First approach",
+                  fillColor: "rgba(220,220,220,0.2)",
+                  strokeColor: "rgba(220,220,220,1)",
+                  pointColor: "rgba(220,220,220,1)",
+                  pointStrokeColor: "#fff",
+                  pointHighlightFill: "#fff",
+                  pointHighlightStroke: "rgba(220,220,220,1)",
+                  data: data,
+              }]
+            };
+            var options = {
+              scaleStartValue: 0,
+              scaleShowVerticalLines: true,
+              tooltipTemplate: "Disk size: <%=valueLabel%> (with  <%=argLabel%> containers)",
+              legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
+            };
+            var diskSizeChart = new Chart(ctx).Scatter(data, options);
+            $('#' + canvasId).after('<div id="legend">' + diskSizeChart.generateLegend()+ '</div>');
+          }
+          return {
+              create: createChart
+          };
+      })();  // End defaultLineChart module
+      $(function() {
+        defaultLineChart.create('diskChart', [
+          { x: 0, y: 0 },
+          { x: 19, y: 65 },
+          { x: 27, y: 59 },
+          { x: 28, y: 69 },
+          { x: 40, y: 81 },
+          { x: 48, y: 56 }
+        ]);
+      });
+    </script>
   </head>
   <body>
     <section class="page-header">
@@ -24,41 +64,9 @@
     <section class="main-content">
       <p>The <strong>performance-testing</strong> project analyses how well the Docker-based Packet Tracer solution proposed in <a href="http://ptanywhere.github.io">PTAnywhere</a> can scale.</p>
       <p>This page will be updated with the test results.</p>
-      <h1>
-        <a id="disk-size" class="anchor" href="#disk-size" aria-hidden="true"><span class="octicon octicon-link"></span></a>Disk size demanded</h1>
-        <canvas id="diskChart" width="600" height="400"></canvas>
-        <div id="legend"></div>
-        <script>
-          // Get the context of the canvas element we want to select
-          var ctx = document.getElementById("diskChart").getContext("2d");
-          var data = {
-            datasets: [
-              {
-                label: "First approach",
-                fillColor: "rgba(220,220,220,0.2)",
-                strokeColor: "rgba(220,220,220,1)",
-                pointColor: "rgba(220,220,220,1)",
-                pointStrokeColor: "#fff",
-                pointHighlightFill: "#fff",
-                pointHighlightStroke: "rgba(220,220,220,1)",
-                data: [
-                  { x: 19, y: 65 },
-                  { x: 27, y: 59 },
-                  { x: 28, y: 69 },
-                  { x: 40, y: 81 },
-                  { x: 48, y: 56 }
-                ],
-              },
-            ]
-          };
-          var options = {
-            scaleShowVerticalLines: true,
-            tooltipTemplate: "<%if (datasetLabel){%><%=datasetLabel%>:<br><%}%>Number of containers: <%=argLabel%><br>Disk size: <%=valueLabel%>",
-            legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
-          };
-          var diskSizeChart = new Chart(ctx).Scatter(data, options);
-          $("#legend").html(diskSizeChart.generateLegend());
-        </script>
+      <h1><a id="disk-size" class="anchor" href="#disk-size" aria-hidden="true"><span class="octicon octicon-link"></span></a>Disk size demanded</h1>
+      <canvas id="diskChart" width="600" height="400"></canvas>
+      <div id="legend"></div>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/PTAnywhere/performance-testing">PTAnywhere performance testing</a> is maintained by <a href="https://github.com/PTAnywhere">PTAnywhere</a>.</span>
