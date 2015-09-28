@@ -34,7 +34,7 @@
               legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
             };
             var diskSizeChart = new Chart(ctx).Scatter(data, options);
-            $('#' + canvasId).after('<div id="legend">' + diskSizeChart.generateLegend()+ '</div>');
+            $('#' + canvasId).after('<div id="legend-' + canvasId + '">' + diskSizeChart.generateLegend()+ '</div>');
           }
           return {
               create: createChart
@@ -48,6 +48,18 @@
           { x: 28, y: 69 },
           { x: 40, y: 81 },
           { x: 48, y: 56 }
+        ]);
+        defaultLineChart.create('cpuTotal', [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+        ]);
+        defaultLineChart.create('cpuPercentage', [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
+        ]);
+        defaultLineChart.create('memoryChart', [
+          { x: 0, y: 0 },
+          { x: 10, y: 10 },
         ]);
       });
     </script>
@@ -66,7 +78,15 @@
       <p>This page will be updated with the test results.</p>
       <h1><a id="disk-size" class="anchor" href="#disk-size" aria-hidden="true"><span class="octicon octicon-link"></span></a>Disk size demanded</h1>
       <canvas id="diskChart" width="600" height="400"></canvas>
-      <div id="legend"></div>
+
+      <h1><a id="cpu-usage" class="anchor" href="#cpu-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>CPU usage</h1>
+      <h2>CPU total usage</h2>
+      <canvas id="cpuTotal" width="600" height="400"></canvas>
+      <h2>CPU percentual usage</h2>
+      <canvas id="cpuPercentage" width="600" height="400"></canvas>
+
+      <h1><a id="memory-usage" class="anchor" href="#memory-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Memory usage</h1>
+      <canvas id="memoryChart" width="600" height="400"></canvas>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/PTAnywhere/performance-testing">PTAnywhere performance testing</a> is maintained by <a href="https://github.com/PTAnywhere">PTAnywhere</a>.</span>
