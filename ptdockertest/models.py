@@ -36,7 +36,7 @@ class Container(Base):
     __tablename__ = 'container'
     id = Column(Integer, primary_key=True)
     run_id = Column(Integer, ForeignKey('run.id'))
-    container_id = Column(String(250))  # Docker ID
+    docker_id = Column(String(250))  # Docker ID
     cpu = relationship('CpuRequired', uselist=False, backref='container')  # One to one
     memory = relationship('MemoryRequired', uselist=False, backref='container')  # One to one
     creation_time = relationship('CreationTime', uselist=False, backref='container')  # One to one

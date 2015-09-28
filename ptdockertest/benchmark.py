@@ -9,7 +9,7 @@ import time
 import logging
 import subprocess
 import humanfriendly
-from models import CpuRequired, DiskRequired, MemoryRequired, CreationTime
+from models import Container, CpuRequired, DiskRequired, MemoryRequired, CreationTime
 
 
 class RunMeasures(object):
@@ -54,38 +54,39 @@ class RunMeasures(object):
         folder_size_increase = self._get_disk_size(self.docker) - self.init_size
         folder_size_increase_du = self._get_disk_size_du(self.docker) - self.init_size_du
         self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
-        self._save_disk_size(session, run_id, folder_size_increase)  
+        self._save_disk_size(session, run_id, folder_size_increase)
 
 
 class RunningContainer(object):
     """
     It starts a container, takes measures and saves them.
     """
-    def __init__(self, container_id, docker_client):
-        self.container_id = container_id
+    def __init__(self, container_id, container_docker_id, docker_client):
+        self.id = container_id
+        self.docker_id = container_docker_id
         self.docker_client = docker_client
 
     def start(self):
         start = time.time()
-        response = self.docker_client.start(self.container_id)
+        response = self.docker_client.start(self.docker_id)
         self.elapsed = time.time() - start
-        logging.info('Running container "%s".\n\t%s' % (self.container_id, response))
+        logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
 
-    def _save_cpu(self, session, total_cpu, percentual_cpu):
-        c = CpuRequired(container_id=self.container_id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
+    def _save_cpu(self, session, cid, total_cpu, percentual_cpu):
+        c = CpuRequired(container_id=self.id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
         session.add(c)
 
-    def _save_memory(self, session, max_usage):
-        m = MemoryRequired(container_id=self.container_id, size=max_usage)
+    def _save_memory(self, session, cid, max_usage):
+        m = MemoryRequired(container_id=self.id, size=max_usage)
         session.add(m)
 
-    def _save_start_time(self, session):
-        c = CreationTime(container_id=self.container_id, startup_time=self.elapsed)
+    def _save_start_time(self, session, cid):
+        c = CreationTime(container_id=self.id startup_time=self.elapsed)
         session.add(c)
 
     def save_stats(self, session):
-        stats_obj = self.docker_client.stats(self.container_id, decode=True)
-        logging.info('Measuring container "%s".' % self.container_id)
+        stats_obj = self.docker_client.stats(self.docker_id, decode=True)
+        logging.info('Measuring container "%s".' % self.docker_id)
         measure = next(stats_obj)
         total_usage = measure['cpu_stats']['cpu_usage']['total_usage']
         percentual_usage = total_usage * 100.0 / measure['cpu_stats']['system_cpu_usage']
@@ -95,9 +96,12 @@ class RunningContainer(object):
         session.commit()
 
     def stop(self):
-        response = self.docker_client.stop(self.container_id)
-        logging.info('Stopping container "%s".\n\t%s' % (self.container_id, response))
+        response = self.docker_client.stop(self.docker_id)
+        logging.info('Stopping container "%s".\n\t%s' % (self.docker_id, response))
 
+    def remove(self):  # Clear dist
+        response = self.docker_client.remove_container(self.docker_id)
+        logging.info('Removing container "%s".\n\t%s' % (self.docker_id, response))
 
 
 """

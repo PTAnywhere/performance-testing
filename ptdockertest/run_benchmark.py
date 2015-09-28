@@ -21,13 +21,13 @@ def create_run(session, test):
     return run
 
 def create_container(session, container, run):
-    c = Container(container_id=container.get('Id'), run=run)
+    c = Container(docker_id=container.get('Id'), run=run)
     session.add(c)
     session.commit()
     return c
 
-def run_and_measure(container_id, docker_client, dao, thread_list, init_barrier, save_barrier, end_barrier):
-    benchmark = RunningContainer(container_id, docker_client)
+def run_and_measure(container_id, docker_id, docker_client, dao, thread_list, init_barrier, save_barrier, end_barrier):
+    benchmark = RunningContainer(container_id, docker_id, docker_client)
     args = (benchmark, dao, init_barrier, save_barrier, end_barrier)
     thread = Thread(target=run_benchmark, args=args)
     thread.daemon = True
@@ -52,17 +52,21 @@ def main(docker_url, database_file, log_file, testId):
         save_barrier = Barrier(test.number_of_containers)
         end_barrier = Barrier(test.number_of_containers)
         threads = []
+        benchmarks = []
         for _ in range(test.number_of_containers):
             container = docker.create_container(image=test.image_id)
             cont = create_container(session, container, run)
-            logging.info('Container "%s" created.' % cont.container_id)
-            benchmark = run_and_measure(cont.container_id, docker, dao, threads,
-                                        init_barrier, save_barrier, end_barrier)        
+            logging.info('Container "%s" created.' % cont.docker_id)
+            benchmarks.append(run_and_measure(cont.id, cont.docker_id, docker, dao, threads,
+                                        init_barrier, save_barrier, end_barrier))
         for thread in threads:
             thread.join()
 
         # while they are running container consume less disk
         run_measures.save(session, run.id)
+
+        for benckmark in benchmarks:
+            benchmark.remove()
 
         logging.info('Run finished.')
 
