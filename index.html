@@ -41,26 +41,16 @@
           };
       })();  // End defaultLineChart module
       $(function() {
-        defaultLineChart.create('diskChart', [
-          { x: 0, y: 0 },
-          { x: 19, y: 65 },
-          { x: 27, y: 59 },
-          { x: 28, y: 69 },
-          { x: 40, y: 81 },
-          { x: 48, y: 56 }
-        ]);
-        defaultLineChart.create('cpuTotal', [
-          { x: 0, y: 0 },
-          { x: 10, y: 10 },
-        ]);
-        defaultLineChart.create('cpuPercentage', [
-          { x: 0, y: 0 },
-          { x: 10, y: 10 },
-        ]);
-        defaultLineChart.create('memoryChart', [
-          { x: 0, y: 0 },
-          { x: 10, y: 10 },
-        ]);
+        var results = {
+        	"memory": [],
+        	"cpu_percentage": [],
+        	"cpu_total": [],
+        	"size": [],
+        };
+        defaultLineChart.create('diskChart', results.size);
+        defaultLineChart.create('cpuTotal',  results.cpu_total);
+        defaultLineChart.create('cpuPercentage', results.cpu_percentage);
+        defaultLineChart.create('memoryChart', results.memory);
       });
     </script>
   </head>
