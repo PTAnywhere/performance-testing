@@ -9,28 +9,53 @@ from argparse import ArgumentParser
 from models import PerformanceTestDAO, Test
 
 
-def generate_disk_size(measures):
-    print '['
-    for num_containers, average_size in measures.items():
-        print '{%d: %f},' % (num_containers, average_size)
-    print ']'
-
+def generate_data_json(measures):
+    for indicator, measures in measures.items():
+        print '{"' + indicator + '": '
+        for num_containers, measure in measures.items():
+            print '[ {0: 0.0}'
+            for num_containers, measure in measures.items():
+                print '{%d: %f},' % (num_containers, measure)
+            print ']'
+        print '}'
 
 def main(database_file, log_file):
     print "Generating plots..."
     dao = PerformanceTestDAO(database_file)
     session = dao.create_session()
     measures = {
-        'size': {}
+        'size': {},
+        'cpu_total': {},
+        'cpu_percentage': {},
+        'memory': {}
     }
     for test in session.query(Test):
-        size_measures = []
+        per_run = {
+            'size': {},
+            'cpu_total': {},
+            'cpu_percentage': {},
+            'memory': {}
+        }
         for run in test.runs:
-            size_measures.append(run.disk.size)
-            #for container in run.containers:
-                #print container.container_id
-        measures['size'][test.number_of_containers] = numpy.mean(size_measures)
-    generate_disk_size(measures['size'])
+            per_container = {
+                'cpu_total': [],
+                'cpu_percentage': [],
+                'memory': []
+            }
+            for container in run.containers:
+                per_container['cpu_total'].append(container.cpu.total_cpu)
+                per_container['cpu_percentage'].append(container.cpu.percentual_cpu)
+                per_container['memory'].append(container.memory.size)
+            per_run['size'].append(run.disk.size)
+            per_run['cpu_total'].append(numpy.mean(per_container['cpu_total']))
+            per_run['cpu_percentage'].append(numpy.mean(per_container['cpu_percentage']))
+            per_run['memory'].append(numpy.mean(per_container['memory']))
+        measures['size'][test.number_of_containers] = numpy.mean(per_run['size'])
+        measures['cpu_total'][test.number_of_containers] = numpy.mean(per_run['cpu_total'])
+        measures['cpu_percentage'][test.number_of_containers] = numpy.mean(per_run['cpu_percentage'])
+        measures['memory'][test.number_of_containers] = numpy.mean(per_run['memory'])
+
+    generate_data_json(measures)
 
 
 
