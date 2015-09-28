@@ -10,14 +10,15 @@ from models import PerformanceTestDAO, Test
 
 
 def generate_data_json(measures):
+    print '{'
     for indicator, measures in measures.items():
-        print '{"' + indicator + '": '
+        print '\t"' + indicator + '": ['
         for num_containers, measure in measures.items():
-            print '[ {0: 0.0}'
+            print '\t\t{0: 0.0},'
             for num_containers, measure in measures.items():
-                print '{%d: %f},' % (num_containers, measure)
-            print ']'
-        print '}'
+                print '\t\t{%d: %f},' % (num_containers, measure)
+        print '\t]'
+    print '}'
 
 def main(database_file, log_file):
     print "Generating plots..."
@@ -31,10 +32,10 @@ def main(database_file, log_file):
     }
     for test in session.query(Test):
         per_run = {
-            'size': {},
-            'cpu_total': {},
-            'cpu_percentage': {},
-            'memory': {}
+            'size': [],
+            'cpu_total': [],
+            'cpu_percentage': [],
+            'memory': []
         }
         for run in test.runs:
             per_container = {
