@@ -65,7 +65,7 @@ def main(docker_url, database_file, log_file, testId):
         # while they are running container consume less disk
         run_measures.save(session, run.id)
 
-        for benckmark in benchmarks:
+        for benchmark in benchmarks:
             benchmark.remove()
 
         logging.info('Run finished.')
