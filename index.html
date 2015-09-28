@@ -13,7 +13,40 @@
     <script src="Chart.Scatter.min.js"></script>
     <script>
       var defaultLineChart = (function () {
-          function createChart(canvasId, data) {
+          //Source: http://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable
+          function humanFileSize(bytes, si) {
+            var thresh = si ? 1000 : 1024;
+            if(Math.abs(bytes) < thresh) {
+                return bytes + ' B';
+            }
+            var units = si
+                ? ['kB','MB','GB','TB','PB','EB','ZB','YB']
+                : ['KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB'];
+            var u = -1;
+            do {
+                bytes /= thresh;
+                ++u;
+            } while(Math.abs(bytes) >= thresh && u < units.length - 1);
+            return bytes.toFixed(1)+' '+units[u];
+          }
+
+          function getOptions(additionalOptions) {
+            var options = {
+              animation: false,
+              scaleStartValue: 0,
+              scaleShowVerticalLines: true,
+              tooltipTemplate: "Disk size: <%=valueLabel%> (with  <%=argLabel%> containers)",
+              legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
+            };
+            if (typeof additionalOptions!=='undefined') {
+              for (var key in additionalOptions) {
+                options[key] = additionalOptions[key];
+              }
+            }
+            return options;
+          }
+
+          function createChart(canvasId, data, additionalOptions) {
             var ctx = document.getElementById(canvasId).getContext("2d");
             var data = {
               datasets: [{
@@ -27,27 +60,34 @@
                   data: data,
               }]
             };
-            var options = {
-              scaleStartValue: 0,
-              scaleShowVerticalLines: true,
-              tooltipTemplate: "Disk size: <%=valueLabel%> (with  <%=argLabel%> containers)",
-              legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
-            };
-            var diskSizeChart = new Chart(ctx).Scatter(data, options);
+            var diskSizeChart = new Chart(ctx).Scatter(data, getOptions(additionalOptions));
             $('#' + canvasId).after('<div id="legend-' + canvasId + '">' + diskSizeChart.generateLegend()+ '</div>');
           }
           return {
-              create: createChart
+              create: createChart,
+              humanizeSize: humanFileSize,
           };
       })();  // End defaultLineChart module
       $(function() {
         var results = {
-        	"memory": [],
-        	"cpu_percentage": [],
-        	"cpu_total": [],
-        	"size": [],
+        	"memory": [
+        		{x: 0, y: 0.0},
+        		{x: 5, y: 24764416.000000},
+        	],
+        	"cpu_percentage": [
+        		{x: 0, y: 0.0},
+        		{x: 5, y: 0.000000},
+        	],
+        	"cpu_total": [
+        		{x: 0, y: 0.0},
+        		{x: 5, y: 88726985.800000},
+        	],
+        	"size": [
+        		{x: 0, y: 0.0},
+        		{x: 5, y: 30064771.000000},
+        	],
         };
-        defaultLineChart.create('diskChart', results.size);
+        defaultLineChart.create('diskChart', results.size, { scaleLabel: '<%=defaultLineChart.humanizeSize(value, true)%>' });
         defaultLineChart.create('cpuTotal',  results.cpu_total);
         defaultLineChart.create('cpuPercentage', results.cpu_percentage);
         defaultLineChart.create('memoryChart', results.memory);
