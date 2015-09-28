@@ -14,10 +14,10 @@ def generate_data_json(measures):
     for indicator, measures in measures.items():
         print '\t"' + indicator + '": ['
         for num_containers, measure in measures.items():
-            print '\t\t{0: 0.0},'
+            print '\t\t{x: 0, y: 0.0},'
             for num_containers, measure in measures.items():
-                print '\t\t{%d: %f},' % (num_containers, measure)
-        print '\t]'
+                print '\t\t{x: %d, y: %f},' % (num_containers, measure)
+        print '\t],'
     print '}'
 
 def main(database_file, log_file):
