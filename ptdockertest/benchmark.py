@@ -69,12 +69,11 @@ class RunningContainer(object):
     def start(self):
         start = time.time()
         response = self.docker_client.start(self.docker_id)
+        logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
         self.elapsed = time.time() - start
         measure = next(self.docker_client.stats(self.docker_id, decode=True))
         self._previous_cpu = measure['cpu_stats']['cpu_usage']['total_usage']
         self._previous_system = measure['cpu_stats']['system_cpu_usage']
-        logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
-        
 
     def _save_cpu(self, session, total_cpu, percentual_cpu):
         c = CpuRequired(container_id=self.id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
@@ -107,12 +106,12 @@ class RunningContainer(object):
         session.commit()
 
     def stop(self):
-        response = self.docker_client.stop(self.docker_id)
-        logging.info('Stopping container "%s".\n\t%s' % (self.docker_id, response))
+        self.docker_client.stop(self.docker_id)
+        logging.info('Stopping container "%s".' % (self.docker_id))
 
     def remove(self):  # Clear dist
-        response = self.docker_client.remove_container(self.docker_id)
-        logging.info('Removing container "%s".\n\t%s' % (self.docker_id, response))
+        self.docker_client.remove_container(self.docker_id)
+        logging.info('Removing container "%s".' % (self.docker_id))
 
 
 """
