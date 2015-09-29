@@ -4,10 +4,12 @@ Created on 22/09/2015
 Script to run benchmarks.
 """
 
+import time
 import logging
-from argparse import ArgumentParser
 from threading import Thread
+from argparse import ArgumentParser
 from datetime.datetime import now
+from humanfriendly import Spinner, Timer
 from threading3 import Barrier
 from docker import Client
 from models import PerformanceTestDAO, Test, Run, Container
@@ -36,6 +38,14 @@ def run_and_measure(container_id, docker_id, docker_client, dao, thread_list, in
     thread_list.append(thread)
     return benchmark
 
+def wait_for_stats(seconds, start_barrier, end_barrier):
+    start_barrier.wait()
+    with Spinner(label="Waiting", total=5) as spinner:
+        for progress in range(1, seconds + 1):  # Update each second
+            spinner.step(progress)
+            time.sleep(1)
+        end_barrier.wait()
+
 def run_test(docker_client, dao, test):
     if not test.ended:
         logging.info('Running test %d.' % test.id)
@@ -44,8 +54,8 @@ def run_test(docker_client, dao, test):
             logging.info('Create repetition with %d containers.' % test.number_of_containers)
             run = create_run(session, test)
             run_measures = RunMeasures(docker_client)
-            init_barrier = Barrier(test.number_of_containers)
-            save_barrier = Barrier(test.number_of_containers)
+            init_barrier = Barrier(test.number_of_containers + 1)
+            save_barrier = Barrier(test.number_of_containers + 1)
             end_barrier = Barrier(test.number_of_containers)
             threads = []
             benchmarks = []
@@ -55,6 +65,8 @@ def run_test(docker_client, dao, test):
                 logging.info('Container "%s" created.' % cont.docker_id)
                 benchmarks.append(run_and_measure(cont.id, cont.docker_id, docker_client,
                                             dao, threads, init_barrier, save_barrier, end_barrier))
+
+            wait_for_stats(5, init_barrier, save_barrier)
             for thread in threads:
                 thread.join()
 
@@ -73,7 +85,6 @@ def run_test(docker_client, dao, test):
 def run_all(docker_client, dao):
     for test in session.query(Test):
         run_test(docker_client, dao, test)
-
 
 def entry_point():
     parser = ArgumentParser(description='Run benchmark.')

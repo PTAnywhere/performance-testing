@@ -70,7 +70,11 @@ class RunningContainer(object):
         start = time.time()
         response = self.docker_client.start(self.docker_id)
         self.elapsed = time.time() - start
+        measure = next(self.docker_client.stats(self.docker_id, decode=True))
+        self._previous_cpu = measure['cpu_stats']['cpu_usage']['total_usage']
+        self._previous_system = measure['cpu_stats']['system_cpu_usage']
         logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
+        
 
     def _save_cpu(self, session, total_cpu, percentual_cpu):
         c = CpuRequired(container_id=self.id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
@@ -84,13 +88,20 @@ class RunningContainer(object):
         c = CreationTime(container_id=self.id, startup_time=self.elapsed)
         session.add(c)
 
+    def _calculate_cpu_percent(self, currentMeasure):
+        # translating it from calculateCPUPercent in https://github.com/docker/docker/blob/master/api/client/stats.go
+        cpu_percent = 0.0
+        cpu_delta = currentMeasure['cpu_stats']['cpu_usage']['total_usage'] - self._previous_cpu
+        system_delta = currentMeasure['cpu_stats']['system_cpu_usage'] - self._previous_system
+        if system_delta > 0.0 and cpu_delta > 0.0:
+            cpu_percent = (cpu_delta / system_delta) * len(currentMeasure['cpu_stats']['cpu_usage']['percpu_usage']) * 100.0
+        return cpu_percent
+
     def save_stats(self, session):
         stats_obj = self.docker_client.stats(self.docker_id, decode=True)
         logging.info('Measuring container "%s".' % self.docker_id)
         measure = next(stats_obj)
-        total_usage = measure['cpu_stats']['cpu_usage']['total_usage']
-        percentual_usage = total_usage * 100.0 / measure['cpu_stats']['system_cpu_usage']
-        self._save_cpu(session, total_usage, percentual_usage)
+        self._save_cpu(session, measure['cpu_stats']['cpu_usage']['total_usage'], self._calculate_cpu_percent(measure))
         self._save_memory(session, measure['memory_stats']['max_usage'])
         self._save_start_time(session)
         session.commit()
