@@ -31,6 +31,20 @@
             return bytes.toFixed(1)+' '+units[u];
           }
 
+          function humanTime(nsec) {
+            var thresh = 1000;
+            if(Math.abs(nsec) < thresh) {
+                return nsec + ' ns';
+            }
+            var units = ['us','ms','s'];
+            var u = -1;
+            do {
+                nsec /= thresh;
+                ++u;
+            } while(Math.abs(nsec) >= thresh && u < units.length - 1);
+            return nsec.toFixed(1)+' '+units[u];
+          }
+
           function getOptions(additionalOptions) {
             var options = {
               animation: false,
@@ -38,7 +52,7 @@
               scaleShowVerticalLines: true,
               tooltipTemplate: "<%=valueLabel%> (with <%=argLabel%> containers)",
               legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
-	    };
+	          };
             if (typeof additionalOptions!=='undefined') {
               for (var key in additionalOptions) {
                 options[key] = additionalOptions[key];
@@ -64,16 +78,18 @@
             var diskSizeChart = new Chart(ctx).Scatter(data, getOptions(additionalOptions));
             $('#' + canvasId).after('<div id="legend-' + canvasId + '">' + diskSizeChart.generateLegend()+ '</div>');
           }
+
           return {
               create: createChart,
               humanizeSize: humanFileSize,
+              humanizeTime: humanTime,
           };
       })();  // End defaultLineChart module
       $(function() {
         defaultLineChart.create('diskChart', results.size, { scaleLabel: '<%=defaultLineChart.humanizeSize(value, true)%>' });
-        defaultLineChart.create('cpuTotal',  results.cpu_total);
-        defaultLineChart.create('cpuPercentage', results.cpu_percentage);
-        defaultLineChart.create('memoryChart', results.memory);
+        defaultLineChart.create('cpuTotal',  results.cpu_total, { scaleLabel: '<%=defaultLineChart.humanizeTime(value)%>' });
+        defaultLineChart.create('cpuPercentage', results.cpu_percentage, { scaleLabel: '<%=value%>%' });
+        defaultLineChart.create('memoryChart', results.memory, { scaleLabel: '<%=defaultLineChart.humanizeSize(value, false)%>' });
       });
     </script>
   </head>
