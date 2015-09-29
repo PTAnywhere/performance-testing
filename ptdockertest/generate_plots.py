@@ -6,57 +6,61 @@ Script to run benchmarks.
 
 import numpy
 from argparse import ArgumentParser
+from collections import OrderedDict
 from models import PerformanceTestDAO, Test
+
+
+SIZE = 'size'
+CPU_TOTAL = 'cpu_total'
+CPU_TOTAL_PC = 'cpu_total_per_container'
+CPU_PERC = 'cpu_percentage'
+CPU_PERC_PC = 'cpu_percentage_per_container'
+MEMORY = 'memory'
+MEMORY_PC = 'memory_per_container'
+ALL_FIELDS = (SIZE, CPU_TOTAL, CPU_TOTAL_PC, CPU_PERC, CPU_PERC_PC, MEMORY, MEMORY_PC)
 
 
 def generate_data_json(measures):
     print '{'
-    for indicator, measures in measures.items():
+    for indicator, imeasures in measures.items():
         print '\t"' + indicator + '": ['
-        for num_containers, measure in measures.items():
-            print '\t\t{x: 0, y: 0.0},'
-            for num_containers, measure in measures.items():
-                print '\t\t{x: %d, y: %f},' % (num_containers, measure)
+        print '\t\t{x: 0, y: 0.0},'
+        for num_containers, measure in imeasures.items():
+            print '\t\t{x: %d, y: %f},' % (num_containers, measure)
         print '\t],'
     print '}'
+
+def create_dictionary(contains_dicts=True, fields=ALL_FIELDS):
+    ret = {}
+    for field in fields:
+        if contains_dicts:
+            ret[field] = OrderedDict()
+        else:
+            ret[field] = []
+    return ret
 
 def main(database_file, log_file):
     print "Generating plots..."
     dao = PerformanceTestDAO(database_file)
     session = dao.create_session()
-    measures = {
-        'size': {},
-        'cpu_total': {},
-        'cpu_percentage': {},
-        'memory': {}
-    }
-    print benchmark.id
-    for test in session.query(Test):
-        per_run = {
-            'size': [],
-            'cpu_total': [],
-            'cpu_percentage': [],
-            'memory': []
-        }
+    measures = create_dictionary()
+    for test in session.query(Test).order_by(Test.number_of_containers):
+        per_run = create_dictionary(contains_dicts=False)
         for run in test.runs:
-            per_container = {
-                'cpu_total': [],
-                'cpu_percentage': [],
-                'memory': []
-            }
+            per_container = create_dictionary(contains_dicts=False, fields=(CPU_TOTAL, CPU_PERC, MEMORY))
             for container in run.containers:
-                per_container['cpu_total'].append(container.cpu.total_cpu)
-                per_container['cpu_percentage'].append(container.cpu.percentual_cpu)
-                per_container['memory'].append(container.memory.size)
-            per_run['size'].append(run.disk.size)
-            per_run['cpu_total'].append(numpy.mean(per_container['cpu_total']))
-            per_run['cpu_percentage'].append(numpy.mean(per_container['cpu_percentage']))
-            per_run['memory'].append(numpy.mean(per_container['memory']))
-        measures['size'][test.number_of_containers] = numpy.mean(per_run['size'])
-        measures['cpu_total'][test.number_of_containers] = numpy.mean(per_run['cpu_total'])
-        measures['cpu_percentage'][test.number_of_containers] = numpy.mean(per_run['cpu_percentage'])
-        measures['memory'][test.number_of_containers] = numpy.mean(per_run['memory'])
-
+                per_container[CPU_TOTAL].append(container.cpu.total_cpu)
+                per_container[CPU_PERC].append(container.cpu.percentual_cpu)
+                per_container[MEMORY].append(container.memory.size)
+            per_run[SIZE].append(run.disk.size)
+            per_run[CPU_TOTAL].append(numpy.sum(per_container[CPU_TOTAL]))
+            per_run[CPU_TOTAL_PC].append(numpy.mean(per_container[CPU_TOTAL]))
+            per_run[CPU_PERC].append(numpy.sum(per_container[CPU_PERC]))
+            per_run[CPU_PERC_PC].append(numpy.mean(per_container[CPU_PERC]))
+            per_run[MEMORY].append(numpy.sum(per_container[MEMORY]))
+            per_run[MEMORY_PC].append(numpy.mean(per_container[MEMORY]))
+        for key in measures:
+            measures[key][test.number_of_containers] = numpy.mean(per_run[key])
     generate_data_json(measures)
 
 
