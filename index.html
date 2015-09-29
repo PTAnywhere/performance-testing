@@ -11,6 +11,7 @@
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/1.0.2/Chart.min.js"></script>
     <script src="Chart.Scatter.min.js"></script>
+    <script src="results.js"></script>
     <script>
       var defaultLineChart = (function () {
           //Source: http://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable
@@ -35,9 +36,9 @@
               animation: false,
               scaleStartValue: 0,
               scaleShowVerticalLines: true,
-              tooltipTemplate: "Disk size: <%=valueLabel%> (with  <%=argLabel%> containers)",
+              tooltipTemplate: "<%=valueLabel%> (with <%=argLabel%> containers)",
               legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
-            };
+	    };
             if (typeof additionalOptions!=='undefined') {
               for (var key in additionalOptions) {
                 options[key] = additionalOptions[key];
@@ -69,24 +70,6 @@
           };
       })();  // End defaultLineChart module
       $(function() {
-        var results = {
-        	"memory": [
-        		{x: 0, y: 0.0},
-        		{x: 5, y: 24764416.000000},
-        	],
-        	"cpu_percentage": [
-        		{x: 0, y: 0.0},
-        		{x: 5, y: 0.000000},
-        	],
-        	"cpu_total": [
-        		{x: 0, y: 0.0},
-        		{x: 5, y: 88726985.800000},
-        	],
-        	"size": [
-        		{x: 0, y: 0.0},
-        		{x: 5, y: 30064771.000000},
-        	],
-        };
         defaultLineChart.create('diskChart', results.size, { scaleLabel: '<%=defaultLineChart.humanizeSize(value, true)%>' });
         defaultLineChart.create('cpuTotal',  results.cpu_total);
         defaultLineChart.create('cpuPercentage', results.cpu_percentage);
