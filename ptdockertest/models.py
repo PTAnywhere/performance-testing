@@ -46,13 +46,13 @@ class DiskRequired(Base):
     __tablename__ = 'disk'
     id = Column(Integer, primary_key=True)
     run_id = Column(Integer, ForeignKey('run.id'))
-    size = Column(Integer)  # In MB?
+    size = Column(Integer)  # In bytes
 
 class MemoryRequired(Base):
     __tablename__ = 'memory'
     id = Column(Integer, primary_key=True)
     container_id = Column(Integer, ForeignKey('container.id'))
-    size = Column(Integer)  # In MB?
+    size = Column(Integer)  # In bytes
 
 class CreationTime(Base):
     __tablename__ = 'creation'
@@ -64,7 +64,7 @@ class CpuRequired(Base):
     __tablename__ = 'cpu'
     id = Column(Integer, primary_key=True)
     container_id = Column(Integer, ForeignKey('container.id'))
-    total_cpu = Column(Integer)  # nanoseconds?
+    total_cpu = Column(Integer)  # In nanoseconds
     percentual_cpu = Column(Float)
 
 
