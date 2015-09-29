@@ -7,11 +7,14 @@ Script to create database.
 from argparse import ArgumentParser
 from models import PerformanceTestDAO, Test
 
+
+
 def main(database_file):
     dao = PerformanceTestDAO(database_file)
     session = dao.create_session()
-    test = Test(image_id='packettracer', number_of_containers=5, repetitions=1)
-    session.add(test)
+    for num_containers in (1, 5, 10, 20, 40, 60):
+        test = Test(image_id='packettracer', number_of_containers=num_containers, repetitions=1)
+        session.add(test)
     session.commit()
 
 def entry_point():
