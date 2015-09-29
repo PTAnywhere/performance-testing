@@ -28,7 +28,8 @@ class Run(Base):
     __tablename__ = 'run'
     id = Column(Integer, primary_key=True)
     test_id = Column(Integer, ForeignKey('test.id'))
-    starts = Column(DateTime, default=datetime.now)
+    started = Column(DateTime, default=datetime.now)
+    ended = Column(DateTime)
     containers = relationship('Container', backref='run')
     disk = relationship('DiskRequired', uselist=False, backref='run')
 

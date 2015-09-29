@@ -30,6 +30,7 @@ def main(database_file, log_file):
         'cpu_percentage': {},
         'memory': {}
     }
+    print benchmark.id
     for test in session.query(Test):
         per_run = {
             'size': [],
