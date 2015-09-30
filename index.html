@@ -13,7 +13,7 @@
     <script src="Chart.Scatter.min.js"></script>
     <script src="results.js"></script>
     <script>
-      var defaultLineChart = (function () {
+      var lineChart = (function () {
           //Source: http://stackoverflow.com/questions/10420352/converting-file-size-in-bytes-to-human-readable
           function humanFileSize(bytes, si) {
             var thresh = si ? 1000 : 1024;
@@ -45,6 +45,19 @@
             return nsec.toFixed(1)+' '+units[u];
           }
 
+          /* Begin ChartFactory */
+          function ChartFactory(canvasId, additionalOptions) {
+            this(canvasId, additionalOptions, null);
+          }
+
+          function ChartFactory(canvasId, additionalOptions, data) {
+            this.canvasId = canvasId;
+            this.opts = getOptions(additionalOptions);
+            this.datasets = [];
+            if (data!=null)
+              this.datasets.push({label: 'First approach', data: data});
+          }
+
           function getOptions(additionalOptions) {
             var options = {
               animation: false,
@@ -52,7 +65,7 @@
               scaleShowVerticalLines: true,
               tooltipTemplate: "<%=valueLabel%> (with <%=argLabel%> containers)",
               legendTemplate: "<ul class=\"<%=name.toLowerCase()%>-legend\"><%for(var i=0;i<datasets.length;i++){%><li><span class=\"<%=name.toLowerCase()%>-legend-marker\" style=\"background-color:<%=datasets[i].strokeColor%>\"></span><%=datasets[i].label%></li><%}%></ul>"
-	          };
+            };
             if (typeof additionalOptions!=='undefined') {
               for (var key in additionalOptions) {
                 options[key] = additionalOptions[key];
@@ -61,36 +74,35 @@
             return options;
           }
 
-          function createChart(canvasId, data, additionalOptions) {
-            var ctx = document.getElementById(canvasId).getContext("2d");
-            var data = {
-              datasets: [{
-                  label: "First approach",
-                  fillColor: "rgba(220,220,220,0.2)",
-                  strokeColor: "rgba(220,220,220,1)",
-                  pointColor: "rgba(220,220,220,1)",
-                  pointStrokeColor: "#fff",
-                  pointHighlightFill: "#fff",
-                  pointHighlightStroke: "rgba(220,220,220,1)",
-                  data: data,
-              }]
-            };
-            var diskSizeChart = new Chart(ctx).Scatter(data, getOptions(additionalOptions));
-            $('#' + canvasId).after('<div id="legend-' + canvasId + '">' + diskSizeChart.generateLegend()+ '</div>');
-          }
+          ChartFactory.prototype.add = function(dataset) {
+            this.datasets.push(dataset);
+            return this;
+          };
+
+          ChartFactory.prototype.build = function(data) {
+            var ctx = document.getElementById(this.canvasId).getContext('2d');
+            var data = {datasets: this.datasets};
+            var chart = new Chart(ctx).Scatter(data, getOptions(this.opts));
+            $('#' + this.canvasId).after('<div id="legend-' + this.canvasId + '">' + chart.generateLegend()+ '</div>');
+            return chart;
+          };
+          /* End ChartFactory */
 
           return {
-              create: createChart,
+              Factory: ChartFactory,
               humanizeSize: humanFileSize,
               humanizeTime: humanTime,
           };
       })();  // End defaultLineChart module
+
       $(function() {
-        defaultLineChart.create('diskChart', results.size, { scaleLabel: '<%=defaultLineChart.humanizeSize(value, true)%>' });
-        defaultLineChart.create('cpuTotal',  results.cpu_total, { scaleLabel: '<%=defaultLineChart.humanizeTime(value)%>' });
-        defaultLineChart.create('cpuPercentage', results.cpu_percentage, { scaleLabel: '<%=value%>%' });
-        defaultLineChart.create('memoryTotal', results.memory, { scaleLabel: '<%=defaultLineChart.humanizeSize(value, false)%>' });
-        defaultLineChart.create('memoryPercentage', results.memory_percentage, { scaleLabel: '<%=value%>%' });
+        new lineChart.Factory('diskChart', { scaleLabel: '<%=lineChart.humanizeSize(value, true)%>' }, results.size).build();
+        new lineChart.Factory('cpuTotal', { scaleLabel: '<%=lineChart.humanizeTime(value)%>' },  results.cpu_total).build();
+        new lineChart.Factory('cpuPercentage', { scaleLabel: '<%=value%>%' }, results.cpu_percentage).build();
+        mu = new lineChart.Factory('memoryUsage', { scaleLabel: '<%=lineChart.humanizeSize(value, false)%>' }).
+            add({label: 'First approach', data: results.memory}).
+            add({label: 'First approach (max)', data: results.memory_max, strokeColor: 'red'}).build();
+        new lineChart.Factory('memoryPercentage', { scaleLabel: '<%=value%>%' }, results.memory_percentage).build();
       });
     </script>
   </head>
@@ -123,9 +135,9 @@
       <canvas id="cpuPercentage" width="600" height="400"></canvas>
 
       <h1><a id="memory-usage" class="anchor" href="#memory-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Memory usage</h1>
-      <h2>Memory total usage</h2>
-      <p>The following chart shows the summatory of the memory usage recorded for each container.</p>
-      <canvas id="memoryTotal" width="600" height="400"></canvas>
+      <h2>Memory usage</h2>
+      <p>The following chart shows the summatory of the memory usage recorded for each container and the maximum memory usage.</p>
+      <canvas id="memoryUsage" width="600" height="400"></canvas>
       <h2>Memory percentual usage</h2>
       <p>Note: the machine where it has been tested has 125 GiBs.</p>
       <canvas id="memoryPercentage" width="600" height="400"></canvas>
