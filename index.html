@@ -105,16 +105,24 @@
     <section class="main-content">
       <p>The <strong>performance-testing</strong> project analyses how well the Docker-based Packet Tracer solution proposed in <a href="http://ptanywhere.github.io">PTAnywhere</a> can scale.</p>
       <p>This page will be updated with the test results.</p>
+      <p>The tests will check what happens in the system when N Packet Tracer instances are running simultaneously.</p>
+
       <h1><a id="disk-size" class="anchor" href="#disk-size" aria-hidden="true"><span class="octicon octicon-link"></span></a>Disk size demanded</h1>
+      <p>The following chart shows the disk needed by Docker to store a container after running it.
+        During the execution they require significantly less disk space.
+        Note that storing the container after its execution might not be always a desired feature.
+        If it is not, Docker will get rid of the resources allocated.</p>
       <canvas id="diskChart" width="600" height="400"></canvas>
 
       <h1><a id="cpu-usage" class="anchor" href="#cpu-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>CPU usage</h1>
       <h2>CPU total usage</h2>
+      <p>The following chart shows the summatory of the CPU time allocated by each container during their lifetime (around 5 seconds).</p>
       <canvas id="cpuTotal" width="600" height="400"></canvas>
       <h2>CPU percentual usage</h2>
       <canvas id="cpuPercentage" width="600" height="400"></canvas>
 
       <h1><a id="memory-usage" class="anchor" href="#memory-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Memory usage</h1>
+      <p>The following chart shows the summatory of the maximum memory usage recorded for each container.</p>
       <canvas id="memoryChart" width="600" height="400"></canvas>
 
       <footer class="site-footer">
