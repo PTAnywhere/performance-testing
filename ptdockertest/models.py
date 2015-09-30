@@ -52,7 +52,9 @@ class MemoryRequired(Base):
     __tablename__ = 'memory'
     id = Column(Integer, primary_key=True)
     container_id = Column(Integer, ForeignKey('container.id'))
-    size = Column(Integer)  # In bytes
+    usage = Column(Integer)  # In bytes
+    percentual = Column(Float)
+    maximum = Column(Integer)
 
 class CreationTime(Base):
     __tablename__ = 'creation'
