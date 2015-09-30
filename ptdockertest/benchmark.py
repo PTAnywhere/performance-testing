@@ -79,8 +79,9 @@ class RunningContainer(object):
         c = CpuRequired(container_id=self.id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
         session.add(c)
 
-    def _save_memory(self, session, max_usage):
-        m = MemoryRequired(container_id=self.id, size=max_usage)
+    def _save_memory(self, session, mstats):
+        percent = mstats['usage'] / float(mstats['limit']) * 100.0
+        m = MemoryRequired(container_id=self.id, usage=mstats['usage'], percentual=percent, maximum=mstats['max_usage'])
         session.add(m)
 
     def _save_start_time(self, session):
@@ -101,7 +102,7 @@ class RunningContainer(object):
         logging.info('Measuring container "%s".' % self.docker_id)
         measure = next(stats_obj)
         self._save_cpu(session, measure['cpu_stats']['cpu_usage']['total_usage'], self._calculate_cpu_percent(measure))
-        self._save_memory(session, measure['memory_stats']['max_usage'])
+        self._save_memory(session, measure['memory_stats'])
         self._save_start_time(session)
         session.commit()
 

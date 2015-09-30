@@ -10,14 +10,19 @@ from collections import OrderedDict
 from models import PerformanceTestDAO, Test
 
 
+PER_CONTAINER_SUFFIX = '_per_container'
 SIZE = 'size'
 CPU_TOTAL = 'cpu_total'
-CPU_TOTAL_PC = 'cpu_total_per_container'
+CPU_TOTAL_PC = CPU_TOTAL + PER_CONTAINER_SUFFIX
 CPU_PERC = 'cpu_percentage'
-CPU_PERC_PC = 'cpu_percentage_per_container'
+CPU_PERC_PC = CPU_PERC + PER_CONTAINER_SUFFIX
 MEMORY = 'memory'
-MEMORY_PC = 'memory_per_container'
-ALL_FIELDS = (SIZE, CPU_TOTAL, CPU_TOTAL_PC, CPU_PERC, CPU_PERC_PC, MEMORY, MEMORY_PC)
+MEMORY_PC = MEMORY + PER_CONTAINER_SUFFIX
+MEMORY_MAX = 'memory_max'
+MEMORY_MAX_PC = MEMORY_MAX + PER_CONTAINER_SUFFIX
+MEMORY_PERC = 'memory_percentage'
+MEMORY_PERC_PC = MEMORY_PERC + PER_CONTAINER_SUFFIX
+ALL_FIELDS = (SIZE, CPU_TOTAL, CPU_TOTAL_PC, CPU_PERC, CPU_PERC_PC, MEMORY, MEMORY_PC, MEMORY_MAX, MEMORY_MAX_PC, MEMORY_PERC, MEMORY_PERC_PC)
 
 
 def generate_data_json(measures):
@@ -47,11 +52,13 @@ def main(database_file, log_file):
     for test in session.query(Test).order_by(Test.number_of_containers):
         per_run = create_dictionary(contains_dicts=False)
         for run in test.runs:
-            per_container = create_dictionary(contains_dicts=False, fields=(CPU_TOTAL, CPU_PERC, MEMORY))
+            per_container = create_dictionary(contains_dicts=False, fields=(CPU_TOTAL, CPU_PERC, MEMORY, MEMORY_MAX, MEMORY_PERC))
             for container in run.containers:
                 per_container[CPU_TOTAL].append(container.cpu.total_cpu)
                 per_container[CPU_PERC].append(container.cpu.percentual_cpu)
-                per_container[MEMORY].append(container.memory.size)
+                per_container[MEMORY].append(container.memory.usage)
+                per_container[MEMORY_MAX].append(container.memory.maximum)
+                per_container[MEMORY_PERC].append(container.memory.percentual)
             per_run[SIZE].append(run.disk.size)
             per_run[CPU_TOTAL].append(numpy.sum(per_container[CPU_TOTAL]))
             per_run[CPU_TOTAL_PC].append(numpy.mean(per_container[CPU_TOTAL]))
@@ -59,6 +66,10 @@ def main(database_file, log_file):
             per_run[CPU_PERC_PC].append(numpy.mean(per_container[CPU_PERC]))
             per_run[MEMORY].append(numpy.sum(per_container[MEMORY]))
             per_run[MEMORY_PC].append(numpy.mean(per_container[MEMORY]))
+            per_run[MEMORY_MAX].append(numpy.sum(per_container[MEMORY_MAX]))
+            per_run[MEMORY_MAX_PC].append(numpy.mean(per_container[MEMORY_MAX]))
+            per_run[MEMORY_PERC].append(numpy.sum(per_container[MEMORY_PERC]))
+            per_run[MEMORY_PERC_PC].append(numpy.mean(per_container[MEMORY_PERC]))
         for key in measures:
             measures[key][test.number_of_containers] = numpy.mean(per_run[key])
     generate_data_json(measures)
