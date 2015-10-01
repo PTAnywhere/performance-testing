@@ -33,16 +33,18 @@ public class PTChecker extends PacketTracerClient {
         // "192.168.35.2", 39000
     }
 
-    @Override
-    protected void internalRun() throws Exception {
-        final IPC ipc = this.ipcFactory.getIPC();
-        final Network network = this.ipcFactory.network(ipc);
-        final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
-    }
-
-    protected long waitUntilPTResponds(int maxWaitingSeconds) {
-        // TODO
-        return 0;  // In miliseconds
+    protected long waitUntilPTResponds(int maxWaitingSeconds) throws Exception {
+        start();
+        int maxWaitingsDecaScs = maxWaitingSeconds * 10;
+        final long init = System.currentTimeMillis();
+        while (maxWaitingsDecaScs>0) {
+            final IPC ipc = this.ipcFactory.getIPC();
+            final Network network = this.ipcFactory.network(ipc);
+            final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
+            if (dev!=null) return System.currentTimeMillis() - init;  // Elapsed
+            maxWaitingsDecaScs -= 1;
+        }
+        return -1;  // In miliseconds
     }
 
     protected long getAverageResponseTime(int repetitions) {
@@ -50,7 +52,7 @@ public class PTChecker extends PacketTracerClient {
         return 0;  // In miliseconds
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         if (args.length<2) {
             System.out.println("usage: java PTChecker hostname port\n");
             System.out.println("Checks the time needed to contact a PacketTracer instance.\n");
@@ -58,7 +60,7 @@ public class PTChecker extends PacketTracerClient {
             System.out.println("\tport    \tan integer for the port number of the Packet Tracer instance.");
         } else {
             final PTChecker checker = new PTChecker(args[0], Integer.parseInt(args[1]));
-            checker.waitUntilPTResponds(5);
+            System.out.println( checker.waitUntilPTResponds(5) );
             //checker.getAverageResponseTime(100);
         }
     }
@@ -77,13 +79,10 @@ abstract class PacketTracerClient {
         this.port = port;
     }
 
-  	abstract protected void internalRun() throws Exception;
-
-    public void run() throws Exception {
+    public void start() throws Exception {
     		PacketTracerSessionFactory sessionFactory = PacketTracerSessionFactoryImpl.getInstance();
     		packetTracerSession = createSession(sessionFactory);
     		ipcFactory = new IPCFactory(packetTracerSession);
-    		internalRun();
     }
 
   	protected PacketTracerSession createSession(PacketTracerSessionFactory sessionFactory) throws Exception {
