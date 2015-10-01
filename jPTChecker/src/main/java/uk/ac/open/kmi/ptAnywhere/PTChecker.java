@@ -9,6 +9,9 @@ import com.cisco.pt.ptmp.PacketTracerSession;
 import com.cisco.pt.ptmp.PacketTracerSessionFactory;
 import com.cisco.pt.ptmp.impl.PacketTracerSessionFactoryImpl;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 
 /**
  * This class allows you to check when a Packet Tracer session is up and
@@ -62,6 +65,13 @@ public class PTChecker extends PacketTracerClient {
             System.out.println("\twait    \t(optional, default: " + PTChecker.defaultWaitTime +
                                             ") number of seconds that the program will retry connections.");
         } else {
+            Logger logger = Logger.getLogger("com.cisco.pt");
+
+            // Now set its level. Normally you do not need to set the
+            // level of a logger programmatically. This is usually done
+            // in configuration files.
+            logger.setLevel(Level.OFF);
+
             int waitTime = PTChecker.defaultWaitTime;
             if(args.length>=3) {
                 waitTime = Integer.parseInt(args[2]);
