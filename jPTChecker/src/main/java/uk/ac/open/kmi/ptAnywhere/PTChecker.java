@@ -1,13 +1,9 @@
-import com.cisco.pt.ipc.events.TerminalLineEvent;
-import com.cisco.pt.ipc.events.TerminalLineEventListener;
-import com.cisco.pt.ipc.events.TerminalLineEventRegistry;
+package uk.ac.open.kmi.ptAnywhere;
+
 import com.cisco.pt.ipc.sim.Network;
 import com.cisco.pt.ipc.sim.CiscoDevice;
-import com.cisco.pt.ipc.sim.TerminalLine;
 import com.cisco.pt.ipc.ui.IPC;
-import com.cisco.pt.ipc.IPCError;
 import com.cisco.pt.ipc.IPCFactory;
-import com.cisco.pt.launcher.PacketTracerLauncher;
 import com.cisco.pt.ptmp.ConnectionNegotiationProperties;
 import com.cisco.pt.ptmp.PacketTracerSession;
 import com.cisco.pt.ptmp.PacketTracerSessionFactory;

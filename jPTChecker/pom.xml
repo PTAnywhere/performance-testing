@@ -32,7 +32,7 @@
           <configuration>
             <archive>
               <manifest>
-                <mainClass>PTChecker</mainClass>
+                <mainClass>uk.ac.open.kmi.ptAnywhere.PTChecker</mainClass>
               </manifest>
             </archive>
             <descriptorRefs>
