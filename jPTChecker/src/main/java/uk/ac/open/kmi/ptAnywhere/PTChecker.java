@@ -22,23 +22,28 @@ import com.cisco.pt.ptmp.impl.PacketTracerSessionFactoryImpl;
  */
 public class PTChecker extends PacketTracerClient {
 
+    final static int defaultWaitTime = 5;
+    final static int retryMiliseconds = 500;
+
     public PTChecker(String host, int port) {
         super(host, port);
-        // "forge-pt002.kmi.open.ac.uk", 39000
-        // "192.168.34.202", 39001
-        // "192.168.35.2", 39000
     }
 
     protected long waitUntilPTResponds(int maxWaitingSeconds) throws Exception {
-        start();
-        int maxWaitingsDecaScs = maxWaitingSeconds * 10;
+        int waitingMs = maxWaitingSeconds * 1000;
         final long init = System.currentTimeMillis();
-        while (maxWaitingsDecaScs>0) {
-            final IPC ipc = this.ipcFactory.getIPC();
-            final Network network = this.ipcFactory.network(ipc);
-            final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
-            if (dev!=null) return System.currentTimeMillis() - init;  // Elapsed
-            maxWaitingsDecaScs -= 1;
+        while (waitingMs>0) {
+            final long initLoop = System.currentTimeMillis();
+            try {
+                final IPC ipc = getIPC();
+                final Network network = this.ipcFactory.network(ipc);
+                final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
+                if (dev!=null) return System.currentTimeMillis() - init;  // elapsed
+            } catch(Error e) {
+                long elapsedLoop = System.currentTimeMillis() - initLoop;
+                if (elapsedLoop<PTChecker.retryMiliseconds) Thread.sleep(PTChecker.retryMiliseconds-elapsedLoop);
+                waitingMs -= PTChecker.retryMiliseconds;
+            }
         }
         return -1;  // In miliseconds
     }
@@ -50,22 +55,28 @@ public class PTChecker extends PacketTracerClient {
 
     public static void main(String[] args) throws Exception {
         if (args.length<2) {
-            System.out.println("usage: java PTChecker hostname port\n");
+            System.out.println("usage: java PTChecker hostname port [wait]\n");
             System.out.println("Checks the time needed to contact a PacketTracer instance.\n");
             System.out.println("\thostname\tstring with the name of the Packet Tracer instance host.");
             System.out.println("\tport    \tan integer for the port number of the Packet Tracer instance.");
+            System.out.println("\twait    \t(optional, default: " + PTChecker.defaultWaitTime +
+                                            ") number of seconds that the program will retry connections.");
         } else {
+            int waitTime = PTChecker.defaultWaitTime;
+            if(args.length>=3) {
+                waitTime = Integer.parseInt(args[2]);
+            }
             final PTChecker checker = new PTChecker(args[0], Integer.parseInt(args[1]));
-            System.out.println( checker.waitUntilPTResponds(5) );
+            System.out.println( checker.waitUntilPTResponds(waitTime) );
+
+            checker.stop();
             //checker.getAverageResponseTime(100);
         }
     }
 }
 
 abstract class PacketTracerClient {
-
-  	protected Process packetTracerProcess;
-  	protected PacketTracerSession packetTracerSession;
+    protected PacketTracerSession packetTracerSession;
   	protected IPCFactory ipcFactory;
     final protected String hostName; // "localhost";
   	final protected int port;
@@ -76,29 +87,30 @@ abstract class PacketTracerClient {
     }
 
     public void start() throws Exception {
-    		PacketTracerSessionFactory sessionFactory = PacketTracerSessionFactoryImpl.getInstance();
-    		packetTracerSession = createSession(sessionFactory);
-    		ipcFactory = new IPCFactory(packetTracerSession);
+        final PacketTracerSessionFactory sessionFactory = PacketTracerSessionFactoryImpl.getInstance();
+        this.packetTracerSession = createSession(sessionFactory);
+        this.ipcFactory = new IPCFactory(this.packetTracerSession);
+    }
+
+    public IPC getIPC() throws Exception {
+        if (this.ipcFactory==null) start();
+        return this.ipcFactory.getIPC();
+    }
+
+    public void stop() throws Exception {
+        if (this.packetTracerSession!=null)
+            this.packetTracerSession.close();
     }
 
   	protected PacketTracerSession createSession(PacketTracerSessionFactory sessionFactory) throws Exception {
-    		ConnectionNegotiationProperties negotiationProperties = getNegotiationProperties();
-    		if (negotiationProperties == null) {
-    			   return createDefaultSession(sessionFactory);
-    		} else {
-    			   return createSession(sessionFactory, negotiationProperties);
-    		}
+       return createDefaultSession(sessionFactory);
   	}
 
   	protected PacketTracerSession createDefaultSession(PacketTracerSessionFactory sessionFactory) throws Exception {
-  		  return sessionFactory.openSession(this.hostName, port);
+        return sessionFactory.openSession(this.hostName, this.port);
   	}
 
   	protected PacketTracerSession createSession(PacketTracerSessionFactory sessionFactory, ConnectionNegotiationProperties negotiationProperties) throws Exception {
-  		  return sessionFactory.openSession(this.hostName, port, negotiationProperties);
-  	}
-
-  	protected ConnectionNegotiationProperties getNegotiationProperties() {
-  		  return null;
+        return sessionFactory.openSession(this.hostName, this.port, negotiationProperties);
   	}
 }
