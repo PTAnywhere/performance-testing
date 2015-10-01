@@ -22,5 +22,6 @@ dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
 
-# Sorry, I cannot include the PTIPC library here as the intellectual property belongs to Cisco.
-ptipc-*.jar
+# IntelliJ
+*.iml
+.idea/
