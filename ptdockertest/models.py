@@ -32,6 +32,7 @@ class Run(Base):
     ended = Column(DateTime)
     containers = relationship('Container', backref='run')
     disk = relationship('DiskRequired', uselist=False, backref='run')
+    response_time = relationship('ResponseTime', uselist=False, backref='run')
 
 class Container(Base):
     __tablename__ = 'container'
@@ -47,7 +48,6 @@ class DiskRequired(Base):
     id = Column(Integer, primary_key=True)
     run_id = Column(Integer, ForeignKey('run.id'))
     size = Column(Integer)  # In bytes
-
 
 class ResponseTime(Base):
     __tablename__ = 'response'

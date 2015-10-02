@@ -12,6 +12,7 @@ from models import PerformanceTestDAO, Test
 
 PER_CONTAINER_SUFFIX = '_per_container'
 SIZE = 'size'
+RESPONSE_TIME = 'response'
 CPU_TOTAL = 'cpu_total'
 CPU_TOTAL_PC = CPU_TOTAL + PER_CONTAINER_SUFFIX
 CPU_PERC = 'cpu_percentage'
@@ -22,7 +23,7 @@ MEMORY_MAX = 'memory_max'
 MEMORY_MAX_PC = MEMORY_MAX + PER_CONTAINER_SUFFIX
 MEMORY_PERC = 'memory_percentage'
 MEMORY_PERC_PC = MEMORY_PERC + PER_CONTAINER_SUFFIX
-ALL_FIELDS = (SIZE, CPU_TOTAL, CPU_TOTAL_PC, CPU_PERC, CPU_PERC_PC, MEMORY, MEMORY_PC, MEMORY_MAX, MEMORY_MAX_PC, MEMORY_PERC, MEMORY_PERC_PC)
+ALL_FIELDS = (SIZE, RESPONSE_TIME, CPU_TOTAL, CPU_TOTAL_PC, CPU_PERC, CPU_PERC_PC, MEMORY, MEMORY_PC, MEMORY_MAX, MEMORY_MAX_PC, MEMORY_PERC, MEMORY_PERC_PC)
 
 
 def generate_data_json(measures):
@@ -60,6 +61,7 @@ def main(database_file, log_file):
                 per_container[MEMORY_MAX].append(container.memory.maximum)
                 per_container[MEMORY_PERC].append(container.memory.percentual)
             per_run[SIZE].append(run.disk.size)
+            per_run[RESPONSE_TIME].append(run.response_time.time)
             per_run[CPU_TOTAL].append(numpy.sum(per_container[CPU_TOTAL]))
             per_run[CPU_TOTAL_PC].append(numpy.mean(per_container[CPU_TOTAL]))
             per_run[CPU_PERC].append(numpy.sum(per_container[CPU_PERC]))
