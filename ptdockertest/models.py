@@ -48,6 +48,13 @@ class DiskRequired(Base):
     run_id = Column(Integer, ForeignKey('run.id'))
     size = Column(Integer)  # In bytes
 
+
+class ResponseTime(Base):
+    __tablename__ = 'response'
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, ForeignKey('run.id'))
+    time = Column(Integer)  # In miliseconds
+
 class MemoryRequired(Base):
     __tablename__ = 'memory'
     id = Column(Integer, primary_key=True)

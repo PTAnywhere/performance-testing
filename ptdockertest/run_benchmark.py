@@ -6,15 +6,12 @@ Script to run benchmarks.
 
 import time
 import logging
-from threading import Thread
 from argparse import ArgumentParser
 from datetime import datetime
-from humanfriendly import Spinner, Timer
 from threading3 import Barrier
 from docker import Client
 from models import PerformanceTestDAO, Test, Run, Container
-from benchmark import RunMeasures, RunningContainer
-from benchmark import run as run_benchmark
+from benchmark import RunMeasures, run_and_measure, wait_in_thread, measure_in_thread
 
 
 def create_run(session, test):
@@ -30,42 +27,46 @@ def create_container(session, container, run):
     session.commit()
     return c
 
-def run_and_measure(container_id, docker_id, docker_client, dao, thread_list, init_barrier, save_barrier, end_barrier):
-    benchmark = RunningContainer(container_id, docker_id, docker_client)
-    args = (benchmark, dao, init_barrier, save_barrier, end_barrier)
-    thread = Thread(target=run_benchmark, args=args)
-    thread.daemon = True
-    thread.start()
-    thread_list.append(thread)
-    return benchmark
-
-def wait_for_stats(seconds, start_barrier, end_barrier):
-    start_barrier.wait()
-    with Spinner(label="Waiting", total=5) as spinner:
-        for progress in range(1, seconds + 1):  # Update each second
-            spinner.step(progress)
-            time.sleep(1)
-    end_barrier.wait()
-
 def run_execution(docker_client, dao, session, run, number_of_containers, image_id):
     run_measures = RunMeasures(docker_client)
-    init_barrier = Barrier(number_of_containers + 1)
-    save_barrier = Barrier(number_of_containers + 1)
-    end_barrier = Barrier(number_of_containers)
+    # Probably unuseful as container creation takes no so much time
+    init_barrier = Barrier(number_of_containers + 1)  # Waiting thread
+    # No container will start before passing before_save_barrier
+    before_save_barrier = Barrier(number_of_containers + 1)  # Waiting thread
+    # No container will be stopped before passing end_barrier
+    end_barrier = Barrier(number_of_containers + 1)   # Waiting thread + response time measuring thread
+    ready_barrier = Barrier (2)  # Response time measuring thread
+
     threads = []
     benchmarks = []
-    for _ in range(number_of_containers):
-        container = docker_client.create_container(image=image_id)
+    ipc_port = 39999
+    for n in range(number_of_containers):
+        # n+1 is the last created container, we measure its response time
+        # to see if it takes more time for it to give a response as the scale increases.
+        last_container = n+1==number_of_containers
+        if last_container:
+            port_bindings = {
+               39000: ipc_port,
+               5900: None
+            }
+            container = docker_client.create_container(image=image_id, ports=list(port_bindings.keys()),
+                            host_config=docker_client.create_host_config(port_bindings=port_bindings))
+        else:
+            container = docker_client.create_container(image=image_id)
         cont = create_container(session, container, run)
         logging.info('Container "%s" created.' % cont.docker_id)
-        benchmarks.append(run_and_measure(cont.id, cont.docker_id, docker_client,
-                                          dao, threads, init_barrier, save_barrier, end_barrier))
+        benchmarks.append( run_and_measure(cont.id, cont.docker_id, docker_client, dao,
+                                          threads, init_barrier, before_save_barrier, end_barrier,
+                                          ready_barrier if last_container else None) )
 
-    wait_for_stats(5, init_barrier, save_barrier)
+    measure_in_thread(run_measures, '/home/agg96/JPTChecker-jar-with-dependencies.jar', 'localhost', ipc_port, 10, ready_barrier, end_barrier)
+    wait_in_thread(5, init_barrier, before_save_barrier) # It ensures that containers run for at least 5 seconds
+
+    # Waits for the rest of the threads
     for thread in threads:
         thread.join()
 
-    # while they are running container consume less disk
+    # while it is running a container consumes less disk
     run_measures.save(session, run.id)
 
     for benchmark in benchmarks:
