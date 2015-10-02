@@ -31,18 +31,24 @@
             return bytes.toFixed(1)+' '+units[u];
           }
 
-          function humanTime(nsec) {
+          function humanTime(value, unit='ns') {
             var thresh = 1000;
-            if(Math.abs(nsec) < thresh) {
-                return nsec + ' ns';
+            var units = ['ns', 'us','ms','s'];
+            var u = units.indexOf(unit);
+
+            if (u==-1) {
+              console.error('Invalid units.');
+              return;
             }
-            var units = ['us','ms','s'];
-            var u = -1;
+
+            if(Math.abs(value) < thresh) {
+                return value + unit;
+            }
             do {
-                nsec /= thresh;
+                value /= thresh;
                 ++u;
-            } while(Math.abs(nsec) >= thresh && u < units.length - 1);
-            return nsec.toFixed(1)+' '+units[u];
+            } while(Math.abs(value) >= thresh && u < units.length - 1);
+            return value.toFixed(1)+' '+units[u];
           }
 
           /* Begin ChartFactory */
@@ -97,6 +103,7 @@
 
       $(function() {
         new lineChart.Factory('diskChart', { scaleLabel: '<%=lineChart.humanizeSize(value, true)%>' }, results.size).build();
+        new lineChart.Factory('responseTime', { scaleLabel: '<%=lineChart.humanizeTime(value, "ms")%>' }, results.response).build();
         new lineChart.Factory('cpuTotal', { scaleLabel: '<%=lineChart.humanizeTime(value)%>' },  results.cpu_total).build();
         new lineChart.Factory('cpuPercentage', { scaleLabel: '<%=value%>%' }, results.cpu_percentage).build();
         mu = new lineChart.Factory('memoryUsage', { scaleLabel: '<%=lineChart.humanizeSize(value, false)%>' }).
@@ -126,6 +133,11 @@
         Note that storing the container after its execution might not be always a desired feature.
         If it is not, Docker will get rid of the resources allocated.</p>
       <canvas id="diskChart" width="600" height="400"></canvas>
+
+      <h1><a id="response-time" class="anchor" href="#response-time" aria-hidden="true"><span class="octicon octicon-link"></span></a>Response time</h1>
+      <p>The following chart shows the time needed to contact a Packet Tracer instance
+        after its container has been started.</p>
+      <canvas id="responseTime" width="600" height="400"></canvas>
 
       <h1><a id="cpu-usage" class="anchor" href="#cpu-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>CPU usage</h1>
       <h2>CPU total usage</h2>
