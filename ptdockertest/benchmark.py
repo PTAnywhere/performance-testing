@@ -30,7 +30,7 @@ class TestRun(object):
             # No container will start before passing it
             'before_save': Barrier(number_of_containers + 1),  # Waiting thread
             # No container will be stopped before passing it
-            'end': Barrier(number_of_containers + 1),  # Waiting thread + response time measuring thread
+            'end': Barrier(number_of_containers + 1),  # Response time measuring thread
             'ready': Barrier (2),  # Response time measuring thread
         };
         self.docker = docker_client
@@ -54,7 +54,7 @@ class TestRun(object):
     def _run_container(self, last_container, dao, run_id):
         # For Docker: run = create + start
         if last_container:
-            port_bindings = { 39000: ipc_port, 5900: None }
+            port_bindings = { 39000: self._ipc_port, 5900: None }
             container = self.docker.create_container(image=self.image_id, ports=list(port_bindings.keys()),
                             host_config=self.docker.create_host_config(port_bindings=port_bindings))
         else:
@@ -77,7 +77,9 @@ class TestRun(object):
             threads.append(thread)
             containers.append(container)
 
-        start_daemon(self._measure_response_time, args=(10,))
+        start_daemon(self._measure_response_time, args=(20,),
+                        begin_barrier=self._barriers['ready'],
+                        end_barrier=self._barriers['end'])
         # It ensures that containers run for at least 5 seconds
         start_daemon(target=wait_at_least, args=(5,),
                         begin_barrier=self._barriers['init'],
@@ -87,17 +89,15 @@ class TestRun(object):
         for thread in threads: thread.join()
 
         # while it is running a container consumes less disk
-        self._save(run_id)
+        self._save(dao, run_id)
 
         for container in containers: container.remove()
 
     def _measure_response_time(self, timeout):
-        self._barriers['ready'].wait()
         logging.info('Measuring response time.')
         ret = subprocess.check_output(['java', '-jar', self._checker_jar_path, 'localhost', str(self._ipc_port), str(timeout)])
         self.response_time = int(ret)
         logging.info('Response time: ' + ret)
-        self._barriers['end'].wait()
 
     def _get_disk_size(self):
         """Returns data used by Docker in bytes."""
@@ -137,10 +137,10 @@ class TestRun(object):
         session.add(s)
         session.commit()
 
-    def _save(self, run_id):
+    def _save(self, dao, run_id):
         session = dao.create_session()
-        folder_size_increase = self._get_disk_size(self.docker) - self.init_size
-        folder_size_increase_du = self._get_disk_size_du(self.docker) - self.init_size_du
+        folder_size_increase = self._get_disk_size() - self.init_size
+        folder_size_increase_du = self._get_disk_size_du() - self.init_size_du
         self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
         self._save_disk_size(session, run_id, folder_size_increase)
         self._save_response_time(session, run_id)
@@ -236,7 +236,7 @@ def run_with_barrier(target, args, begin_barrier, end_barrier):
     if end_barrier: end_barrier.wait()
 
 def start_daemon(target, args, begin_barrier=None, end_barrier=None):
-    t = Thread(target=run_with_barrier, args=(args, begin_barrier, end_barrier))
+    t = Thread(target=run_with_barrier, args=(target, args, begin_barrier, end_barrier))
     t.daemon = True
     t.start()
     return t
