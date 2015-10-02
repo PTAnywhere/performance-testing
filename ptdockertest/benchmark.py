@@ -10,34 +10,113 @@ import logging
 import subprocess
 from humanfriendly import Spinner, Timer, format_size, parse_size
 from threading import Thread
+from threading3 import Barrier
 from models import Container, CpuRequired, DiskRequired, MemoryRequired, ResponseTime, CreationTime
 
 
-class RunMeasures(object):
+class TestRun(object):
     """
     It takes measures at run-level and stores them.
     This includes things that are only checked once (e.g., response time for the last created container) and
     differences between before and after a run.
     """
-    def __init__(self, docker_client):
+    def __init__(self, docker_client, number_of_containers, image_id):
+        self.number_of_containers = number_of_containers
+        self._barriers = {
+            # Barrier which ensures that the creation of all containers starts
+            #(approximately) at the same moment.
+            # (it is probably unuseful as container creation takes no so much time)
+            'init': Barrier(number_of_containers + 1),  # Waiting thread
+            # No container will start before passing it
+            'before_save': Barrier(number_of_containers + 1),  # Waiting thread
+            # No container will be stopped before passing it
+            'end': Barrier(number_of_containers + 1),  # Waiting thread + response time measuring thread
+            'ready': Barrier (2),  # Response time measuring thread
+        };
         self.docker = docker_client
-        self.init_size = self._get_disk_size(docker_client)
-        self.init_size_du = self._get_disk_size_du(docker_client)
+        self.image_id = image_id
+        self._ipc_port = 39999
+        self._checker_jar_path = '/home/agg96/JPTChecker-jar-with-dependencies.jar'
 
-    def _get_disk_size(self, docker_client):
+    def _save_container(self, dao, container, run_id):
+        session = dao.create_session()
+        c = Container(docker_id=container.get('Id'), run_id=run_id)
+        session.add(c)
+        session.commit()
+        return c
+
+    def _start_container_and_measure(self, container_id, docker_id, docker_client, dao, ready_barrier):
+        container = RunningContainer(container_id, docker_id, docker_client)
+        args = (dao, self._barriers['before_save'], self._barriers['end'], ready_barrier)
+        thread = start_daemon(target=container.run, args=args, begin_barrier=self._barriers['init'])
+        return container, thread
+
+    def _run_container(self, last_container, dao, run_id):
+        # For Docker: run = create + start
+        if last_container:
+            port_bindings = { 39000: ipc_port, 5900: None }
+            container = self.docker.create_container(image=self.image_id, ports=list(port_bindings.keys()),
+                            host_config=self.docker.create_host_config(port_bindings=port_bindings))
+        else:
+            container = self.docker.create_container(image=self.image_id)
+        db_cont = self._save_container(dao, container, run_id)
+        logging.info('Container "%s" created.' % db_cont.docker_id)
+        return self._start_container_and_measure( db_cont.id, db_cont.docker_id,
+                            self.docker, dao,
+                            self._barriers['ready'] if last_container else None )
+
+    def run(self, dao, run_id):
+        threads = []
+        containers = []
+        self._record_init_disk_size()
+        for n in range(self.number_of_containers):
+            # n+1 is the last created container, we measure its response time
+            # to see if it takes more time for it to give a response as the scale increases.
+            last_container = n+1==self.number_of_containers
+            container, thread = self._run_container(last_container, dao, run_id)
+            threads.append(thread)
+            containers.append(container)
+
+        start_daemon(self._measure_response_time, args=(10,))
+        # It ensures that containers run for at least 5 seconds
+        start_daemon(target=wait_at_least, args=(5,),
+                        begin_barrier=self._barriers['init'],
+                        end_barrier=self._barriers['before_save'])
+
+        # Waits for the rest of the threads
+        for thread in threads: thread.join()
+
+        # while it is running a container consumes less disk
+        self._save(run_id)
+
+        for container in containers: container.remove()
+
+    def _measure_response_time(self, timeout):
+        self._barriers['ready'].wait()
+        logging.info('Measuring response time.')
+        ret = subprocess.check_output(['java', '-jar', self._checker_jar_path, 'localhost', str(self._ipc_port), str(timeout)])
+        self.response_time = int(ret)
+        logging.info('Response time: ' + ret)
+        self._barriers['end'].wait()
+
+    def _get_disk_size(self):
         """Returns data used by Docker in bytes."""
         # docker.info() returns an awful data structure...
-        for field in docker_client.info()['DriverStatus']:
+        for field in self.docker.info()['DriverStatus']:
             if field[0]=='Data Space Used':
                 return parse_size(field[1])  # Value in bytes
         logging.error('"Data Space Used" field was not found in the data returned by Docker.')
 
-    def _get_disk_size_du(self, docker_client):
+    def _get_disk_size_du(self):
         """Returns in Docker's root directory size in KBs."""
          # This function requires you to run the script as sudo
-        directory = docker_client.info()['DockerRootDir']
+        directory = self.docker.info()['DockerRootDir']
         ret = subprocess.check_output(['sudo', 'du', '-sk', directory])
         return int(ret.split()[0]) # Value in KBs
+
+    def _record_init_disk_size(self):
+        self.init_size = self._get_disk_size()
+        self.init_size_du = self._get_disk_size_du()
 
     def _log_measure_comparison(self, info_measure, du_measure):
         logging.info('Additional disk that Docker demanded (measured with docker.info()): ' + format_size(info_measure) + '.')
@@ -53,20 +132,13 @@ class RunMeasures(object):
         session.add(d)
         session.commit()
 
-    def measure_response_time(self, checker_jar_path, hostname, port, timeout, start_barrier, end_barrier):
-        start_barrier.wait()
-        logging.info('Measuring response time.')
-        ret = subprocess.check_output(['java', '-jar', checker_jar_path, hostname, str(port), str(timeout)])
-        self.response_time = int(ret)
-        logging.info('Response time: ' + ret)
-        end_barrier.wait()
-
     def _save_response_time(self, session, run_id):
         s = ResponseTime(run_id=run_id, time=self.response_time)
         session.add(s)
         session.commit()
 
-    def save(self, session, run_id):
+    def _save(self, run_id):
+        session = dao.create_session()
         folder_size_increase = self._get_disk_size(self.docker) - self.init_size
         folder_size_increase_du = self._get_disk_size_du(self.docker) - self.init_size_du
         self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
@@ -136,51 +208,35 @@ class RunningContainer(object):
     Run container, measure it and close it.
 
     :param dao: benchmarking data access object
-    :param init_barrier: Barrier which ensures that the creation of all containers
-                            starts (approximately) at the same moment.
-    :param save_barrier: Barrier which ensures that all containers are running
+    :param all_started_barrier: Barrier which ensures that all containers are running
                             (i.e., they are all compiting for computing resources)
                             when their performance is measured.
     :param end_barrier: Barrier which ensures that no container is stopped
                             before all the measurements have been taken.
     """
-    def run(self, dao, init_barrier, all_started_barrier, end_barrier, ready_barrier=None):
-        init_barrier.wait()
+    def run(self, dao, all_started_barrier, end_barrier, ready_barrier=None):
         self.start()
-        if ready_barrier:
-             # Preference over other barriers to ensure that the response time measure thread starts first
-            ready_barrier.wait()
+        # Preference over other barriers to ensure that the response time measure thread starts first
+        if ready_barrier: ready_barrier.wait()
         all_started_barrier.wait()
         self.save_stats(dao.create_session())
         end_barrier.wait()
         self.stop()
 
 
-def run_and_measure(container_id, docker_id, docker_client, dao, thread_list, init_barrier, save_barrier, end_barrier, ready_barrier):
-    benchmark = RunningContainer(container_id, docker_id, docker_client)
-    args = (dao, init_barrier, save_barrier, end_barrier, ready_barrier)
-    thread = Thread(target=benchmark.run, args=args)
-    thread.daemon = True
-    thread.start()
-    thread_list.append(thread)
-    return benchmark
-
-
-def wait_at_least(seconds, start_barrier, end_barrier):
-    start_barrier.wait()
+def wait_at_least(seconds):
     with Spinner(label="Waiting", total=5) as spinner:
         for progress in range(1, seconds + 1):  # Update each second
             spinner.step(progress)
             time.sleep(1)
-    end_barrier.wait()
 
-def wait_in_thread(seconds, start_barrier, end_barrier):
-    waiting_thread = Thread(target=wait_at_least, args=(seconds, start_barrier, end_barrier))
-    waiting_thread.daemon = True
-    waiting_thread.start()
+def run_with_barrier(target, args, begin_barrier, end_barrier):
+    if begin_barrier: begin_barrier.wait()
+    target(*args)
+    if end_barrier: end_barrier.wait()
 
-
-def measure_in_thread(run_measures, jar_path, hostname, port, timeout, start_barrier, end_barrier):
-    t = Thread(target=run_measures.measure_response_time, args=(jar_path, hostname, port, timeout, start_barrier, end_barrier))
+def start_daemon(target, args, begin_barrier=None, end_barrier=None):
+    t = Thread(target=run_with_barrier, args=(args, begin_barrier, end_barrier))
     t.daemon = True
     t.start()
+    return t
