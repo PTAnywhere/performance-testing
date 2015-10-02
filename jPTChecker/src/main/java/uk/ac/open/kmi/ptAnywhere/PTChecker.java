@@ -42,7 +42,7 @@ public class PTChecker extends PacketTracerClient {
                 final Network network = this.ipcFactory.network(ipc);
                 final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
                 if (dev!=null) return System.currentTimeMillis() - init;  // elapsed
-            } catch(Error e) {
+            } catch(Error|Exception e) {
                 long elapsedLoop = System.currentTimeMillis() - initLoop;
                 if (elapsedLoop<PTChecker.retryMiliseconds) Thread.sleep(PTChecker.retryMiliseconds-elapsedLoop);
                 waitingMs -= PTChecker.retryMiliseconds;
@@ -58,11 +58,11 @@ public class PTChecker extends PacketTracerClient {
 
     public static void main(String[] args) throws Exception {
         if (args.length<2) {
-            System.out.println("usage: java PTChecker hostname port [wait]\n");
+            System.out.println("usage: java PTChecker hostname port [timeout]\n");
             System.out.println("Checks the time needed to contact a PacketTracer instance.\n");
             System.out.println("\thostname\tstring with the name of the Packet Tracer instance host.");
             System.out.println("\tport    \tan integer for the port number of the Packet Tracer instance.");
-            System.out.println("\twait    \t(optional, default: " + PTChecker.defaultWaitTime +
+            System.out.println("\ttimeout    \t(optional, default: " + PTChecker.defaultWaitTime +
                                             ") number of seconds that the program will retry connections.");
         } else {
             Logger logger = Logger.getLogger("com.cisco.pt");
