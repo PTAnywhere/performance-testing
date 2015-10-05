@@ -7,6 +7,7 @@ Script to run benchmarks.
 import logging
 from argparse import ArgumentParser
 from datetime import datetime
+from config import configuration
 from docker import Client
 from models import PerformanceTestDAO, Test, Run
 from benchmark import TestRun
@@ -20,7 +21,7 @@ def create_run(session, test):
     return run
 
 def make_execution(docker_client, dao, session, db_test, db_run):
-    r = TestRun(docker_client, db_test.number_of_containers, db_test.image_id)
+    r = TestRun(docker_client, db_test.number_of_containers, db_test.image_id, configuration.get_jar_path())
     r.run(dao, db_run.id)
     db_run.ended = datetime.now()
     session.commit()
@@ -49,18 +50,23 @@ def run_all(docker_client, dao):
 
 def entry_point():
     parser = ArgumentParser(description='Run benchmark.')
-    parser.add_argument('-docker', default='unix://var/run/docker.sock', dest='url', help='Docker socket URL.')
-    parser.add_argument('-db', default='/tmp/benchmark.db', dest='database', help='Database file.')
-    parser.add_argument('-log', default='/tmp/benchmark.log', dest='log', help='Log file.')
+    parser.add_argument('-config', dest='config', default='../config.ini',
+                            help='If a valid configuration file is provided, the priority will be: values in parameters,' + 
+                            'values in the configuration file and the default values for parameters.')
+    parser.add_argument('-docker', dest='url', help='Docker socket URL.')
+    parser.add_argument('-db', dest='database', help='Database file.')
+    parser.add_argument('-log', dest='log', help='Log file.')
     parser.add_argument('-testId', default=False, dest='testId', help='Benchmark identifier.' +
                             'If it is not provided, all the pending benchmarks will be run.')
     args = parser.parse_args()
 
-    FORMAT = '%(asctime)-15s %(message)s'
-    logging.basicConfig(filename=args.log,level=logging.DEBUG, format=FORMAT)
+    configuration.set_file_path(args.config)
 
-    dao = PerformanceTestDAO(args.database)
-    docker = Client(args.url)
+    FORMAT = '%(asctime)-15s %(message)s'
+    logging.basicConfig(filename=configuration.get_log(args.log),level=logging.DEBUG, format=FORMAT)
+
+    dao = PerformanceTestDAO(configuration.get_db(args.database))
+    docker = Client(configuration.get_docker_url(args.url))
 
     if not args.testId:
         run_all(docker, dao)

@@ -20,7 +20,7 @@ class TestRun(object):
     This includes things that are only checked once (e.g., response time for the last created container) and
     differences between before and after a run.
     """
-    def __init__(self, docker_client, number_of_containers, image_id):
+    def __init__(self, docker_client, number_of_containers, image_id, checker_jar_path):
         self.number_of_containers = number_of_containers
         self._barriers = {
             # Barrier which ensures that the creation of all containers starts
