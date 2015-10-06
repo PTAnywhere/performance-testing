@@ -45,11 +45,11 @@ class TestRun(object):
         session.commit()
         return c
 
-    def _start_container_and_measure(self, container_id, docker_id, docker_client, dao, ready_barrier):
+    def _start_container_and_measure(self, container_id, docker_id, docker_client, ready_barrier):
         container = RunningContainer(container_id, docker_id, docker_client)
-        args = (dao, self._barriers['before_save'], self._barriers['end'], ready_barrier)
+        args = (self._barriers['before_save'], self._barriers['end'], ready_barrier)
         thread = start_daemon(target=container.run, args=args, begin_barrier=self._barriers['init'])
-        return container, thread
+        return thread, container
 
     def _run_container(self, last_container, dao, run_id):
         # For Docker: run = create + start
@@ -61,21 +61,17 @@ class TestRun(object):
             container = self.docker.create_container(image=self.image_id)
         db_cont = self._save_container(dao, container, run_id)
         logging.info('Container "%s" created.' % db_cont.docker_id)
-        return self._start_container_and_measure( db_cont.id, db_cont.docker_id,
-                            self.docker, dao,
-                            self._barriers['ready'] if last_container else None )
+        return self._start_container_and_measure( db_cont.id, db_cont.docker_id, self.docker,
+                                                    self._barriers['ready'] if last_container else None )
 
     def run(self, dao, run_id):
-        threads = []
-        containers = []
+        thread_containers = []  # Array of tuples (thread, container)
         self._record_init_disk_size()
         for n in range(self.number_of_containers):
             # n+1 is the last created container, we measure its response time
             # to see if it takes more time for it to give a response as the scale increases.
             last_container = n+1==self.number_of_containers
-            container, thread = self._run_container(last_container, dao, run_id)
-            threads.append(thread)
-            containers.append(container)
+            thread_containers.append( self._run_container(last_container, dao, run_id) )
 
         start_daemon(self._measure_response_time, args=(20,),
                         begin_barrier=self._barriers['ready'],
@@ -85,13 +81,17 @@ class TestRun(object):
                         begin_barrier=self._barriers['init'],
                         end_barrier=self._barriers['before_save'])
 
+        session = dao.create_session()
         # Waits for the rest of the threads
-        for thread in threads: thread.join()
+        for thread, container in thread_containers:
+            thread.join()
+            container.save_measures(session)
 
         # while it is running a container consumes less disk
-        self._save(dao, run_id)
+        self._save(session, run_id)
 
-        for container in containers: container.remove()
+        for _, container in thread_containers:
+            container.remove()
 
     def _measure_response_time(self, timeout):
         logging.info('Measuring response time.')
@@ -137,8 +137,7 @@ class TestRun(object):
         session.add(s)
         session.commit()
 
-    def _save(self, dao, run_id):
-        session = dao.create_session()
+    def _save(self, session, run_id):
         folder_size_increase = self._get_disk_size() - self.init_size
         folder_size_increase_du = self._get_disk_size_du() - self.init_size_du
         self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
@@ -161,9 +160,7 @@ class RunningContainer(object):
         logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
         # naive measure
         self.elapsed = time.time() - start
-        measure = next(self.docker_client.stats(self.docker_id, decode=True))
-        self._previous_cpu = measure['cpu_stats']['cpu_usage']['total_usage']
-        self._previous_system = measure['cpu_stats']['system_cpu_usage']
+        self._pre_measure = next(self.docker_client.stats(self.docker_id, decode=True))
 
     def _save_cpu(self, session, total_cpu, percentual_cpu):
         c = CpuRequired(container_id=self.id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
@@ -178,21 +175,28 @@ class RunningContainer(object):
         c = CreationTime(container_id=self.id, startup_time=self.elapsed)
         session.add(c)
 
-    def _calculate_cpu_percent(self, currentMeasure):
+    def _calculate_cpu_percent(self):
         # translating it from calculateCPUPercent in https://github.com/docker/docker/blob/master/api/client/stats.go
         cpu_percent = 0.0
-        cpu_delta = currentMeasure['cpu_stats']['cpu_usage']['total_usage'] - self._previous_cpu
-        system_delta = currentMeasure['cpu_stats']['system_cpu_usage'] - self._previous_system
+        previous_cpu = self._pre_measure['cpu_stats']['cpu_usage']['total_usage']
+        previous_system = self._pre_measure['cpu_stats']['system_cpu_usage']
+        post_cpu = self._measure['cpu_stats']['cpu_usage']['total_usage']
+        post_system = self._measure['cpu_stats']['system_cpu_usage']
+        cpu_delta = post_cpu - previous_cpu
+        system_delta = post_system - previous_system
         if system_delta > 0.0 and cpu_delta > 0.0:
-            cpu_percent = (cpu_delta / system_delta) * len(currentMeasure['cpu_stats']['cpu_usage']['percpu_usage']) * 100.0
+            cpu_percent = (cpu_delta / system_delta) * len(self._measure['cpu_stats']['cpu_usage']['percpu_usage']) * 100.0
         return cpu_percent
 
-    def save_stats(self, session):
+    def take_measures(self):
         stats_obj = self.docker_client.stats(self.docker_id, decode=True)
         logging.info('Measuring container "%s".' % self.docker_id)
-        measure = next(stats_obj)
-        self._save_cpu(session, measure['cpu_stats']['cpu_usage']['total_usage'], self._calculate_cpu_percent(measure))
-        self._save_memory(session, measure['memory_stats'])
+        self._measure = next(stats_obj)
+
+    def save_measures(self, session):
+        logging.info('Saving container "%s" measures.' % self.docker_id)
+        self._save_cpu(session, self._measure['cpu_stats']['cpu_usage']['total_usage'], self._calculate_cpu_percent())
+        self._save_memory(session, self._measure['memory_stats'])
         self._save_start_time(session)
         session.commit()
 
@@ -214,12 +218,12 @@ class RunningContainer(object):
     :param end_barrier: Barrier which ensures that no container is stopped
                             before all the measurements have been taken.
     """
-    def run(self, dao, all_started_barrier, end_barrier, ready_barrier=None):
+    def run(self, all_started_barrier, end_barrier, ready_barrier=None):
         self.start()
         # Preference over other barriers to ensure that the response time measure thread starts first
         if ready_barrier: ready_barrier.wait()
         all_started_barrier.wait()
-        self.save_stats(dao.create_session())
+        self.take_measures()
         end_barrier.wait()
         self.stop()
 
