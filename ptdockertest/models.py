@@ -34,15 +34,6 @@ class Run(Base):
     disk = relationship('DiskRequired', uselist=False, backref='run')
     response_time = relationship('ResponseTime', uselist=False, backref='run')
 
-class Container(Base):
-    __tablename__ = 'container'
-    id = Column(Integer, primary_key=True)
-    run_id = Column(Integer, ForeignKey('run.id'))
-    docker_id = Column(String(250))  # Docker ID
-    cpu = relationship('CpuRequired', uselist=False, backref='container')  # One to one
-    memory = relationship('MemoryRequired', uselist=False, backref='container')  # One to one
-    creation_time = relationship('CreationTime', uselist=False, backref='container')  # One to one
-
 class DiskRequired(Base):
     __tablename__ = 'disk'
     id = Column(Integer, primary_key=True)
@@ -54,6 +45,22 @@ class ResponseTime(Base):
     id = Column(Integer, primary_key=True)
     run_id = Column(Integer, ForeignKey('run.id'))
     time = Column(Integer)  # In miliseconds
+
+class Container(Base):
+    __tablename__ = 'container'
+    id = Column(Integer, primary_key=True)
+    run_id = Column(Integer, ForeignKey('run.id'))
+    docker_id = Column(String(250))  # Docker ID
+    cpu = relationship('CpuRequired', uselist=False, backref='container')  # One to one
+    memory = relationship('MemoryRequired', uselist=False, backref='container')  # One to one
+    creation_time = relationship('CreationTime', uselist=False, backref='container')  # One to one
+    error = relationship('ExecutionError', uselist=False, backref='container')  # One to one
+
+class ExecutionError(Base):
+    __tablename__ = 'error'
+    id = Column(Integer, primary_key=True)
+    container_id = Column(Integer, ForeignKey('container.id'))
+    message = Column(String(250))
 
 class MemoryRequired(Base):
     __tablename__ = 'memory'
