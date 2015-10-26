@@ -56,7 +56,7 @@ def run_test(docker_factory, dao, session, test):
     logging.info('Finished test %d.' % test.id)
 
 def run_all(docker_factory, dao):
-    session = dao.create_session()
+    session = dao.get_session()
     for test in session.query(Test):
         run_test(docker_factory, dao, session, test)
 
@@ -83,7 +83,7 @@ def entry_point():
     if not args.testId:
         run_all(docker, dao)
     else:
-        session = dao.create_session()
+        session = dao.get_session()
         test = session.query(Test).get(args.testId)
         run_test(docker, dao, test)
 

@@ -43,7 +43,7 @@ class TestRun(object):
         self._checker_jar_path = '/home/agg96/JPTChecker-jar-with-dependencies.jar'
 
     def _save_container(self, dao, container, run_id):
-        session = dao.create_session()
+        session = dao.get_session()
         c = Container(docker_id=container.get('Id'), run_id=run_id)
         session.add(c)
         session.commit()
@@ -88,7 +88,7 @@ class TestRun(object):
                         begin_barrier=self._barriers['init'],
                         end_barrier=self._barriers['before_save'])
 
-        session = dao.create_session()
+        session = dao.get_session()
         # Waits for the rest of the threads
         for thread, container in thread_containers:
             thread.join()

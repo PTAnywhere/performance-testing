@@ -8,7 +8,7 @@ import logging
 import os.path
 from datetime import datetime
 from sqlalchemy import create_engine
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship, sessionmaker, scoped_session
 from sqlalchemy import Column, ForeignKey, Integer, Float, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -21,7 +21,7 @@ class Test(Base):
     id = Column(Integer, primary_key=True)
     image_id = Column(String(250), nullable=False)  # Docker image ID
     # FIXME Save image specific data (e.g., volumes to be mounted) in a new table.
-    volumes = Column(String(250))  # Volumes to mount (if applicable)  # TODO define somewhere else
+    volumes = Column(String(250))  # Volumes to mount (if applicable)
     number_of_containers = Column(Integer)  # Number of containers to create in the test
     repetitions = Column(Integer)  # Times the test will be repeated
     runs = relationship('Run', backref="test")
@@ -92,8 +92,8 @@ class PerformanceTestDAO(object):
         engine = create_engine(database_url)
         self._create_database_if_not_exist(database_path, engine)
         Base.metadata.bind = engine
-        self.session_maker = sessionmaker(bind=engine)
-
+        session_factory = sessionmaker(bind=engine)
+        self.Session = scoped_session(session_factory)
 
     def _create_database_if_not_exist(self, database_path, engine):
         if not os.path.isfile(database_path):
@@ -102,5 +102,5 @@ class PerformanceTestDAO(object):
             # statements in raw SQL.
             Base.metadata.create_all(engine)
 
-    def create_session(self):
-        return self.session_maker()
+    def get_session(self):
+        return self.Session()

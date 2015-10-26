@@ -11,8 +11,8 @@ from models import PerformanceTestDAO, Test
 
 def main(database_file):
     dao = PerformanceTestDAO(database_file)
-    session = dao.create_session()
-    for num_containers in (1, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600):
+    session = dao.get_session()
+    for num_containers in (1, 5, 10): # (1, 5, 10, 20, 40, 60, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600):
         test = Test(image_id='packettracer_xvfb_mount', volumes='/opt/pt:/opt/pt:ro', number_of_containers=num_containers, repetitions=1)
         session.add(test)
     session.commit()

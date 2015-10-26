@@ -48,7 +48,7 @@ def create_dictionary(contains_dicts=True, fields=ALL_FIELDS):
 def main(database_file, log_file):
     print "Generating plots..."
     dao = PerformanceTestDAO(database_file)
-    session = dao.create_session()
+    session = dao.get_session()
     measures = create_dictionary()
     for test in session.query(Test).order_by(Test.number_of_containers):
         per_run = create_dictionary(contains_dicts=False)
