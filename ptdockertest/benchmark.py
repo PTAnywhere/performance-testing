@@ -20,7 +20,7 @@ class TestRun(object):
     This includes things that are only checked once (e.g., response time for the last created container) and
     differences between before and after a run.
     """
-    def __init__(self, docker_client, number_of_containers, image_id, checker_jar_path):
+    def __init__(self, docker_factory, number_of_containers, image_id, ipc_port, checker_jar_path):
         self.number_of_containers = number_of_containers
         self._barriers = {
             # Barrier which ensures that the creation of all containers starts
@@ -33,9 +33,10 @@ class TestRun(object):
             'end': Barrier(number_of_containers + 1),  # Response time measuring thread
             'ready': Barrier (2),  # Response time measuring thread
         };
-        self.docker = docker_client
+        self.docker_factory = docker_factory
+        self.docker = self.docker_factory.create()
         self.image_id = image_id
-        self._ipc_port = 39999
+        self._ipc_port = ipc_port
         self._checker_jar_path = '/home/agg96/JPTChecker-jar-with-dependencies.jar'
 
     def _save_container(self, dao, container, run_id):
@@ -45,8 +46,8 @@ class TestRun(object):
         session.commit()
         return c
 
-    def _start_container_and_measure(self, container_id, docker_id, docker_client, ready_barrier):
-        container = RunningContainer(container_id, docker_id, docker_client)
+    def _start_container_and_measure(self, container_id, docker_id, docker_factory, ready_barrier):
+        container = RunningContainer(container_id, docker_id, docker_factory.create())
         args = (self._barriers['before_save'], self._barriers['end'], ready_barrier)
         thread = start_daemon(target=container.run, args=args, begin_barrier=self._barriers['init'])
         return thread, container
