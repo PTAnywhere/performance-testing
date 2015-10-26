@@ -13,7 +13,7 @@ from docker.errors import NotFound
 from humanfriendly import Spinner, Timer, format_size, parse_size
 from threading import Thread
 from threading3 import Barrier
-from models import Container, CpuRequired, DiskRequired, MemoryRequired, ResponseTime, CreationTime
+from models import Container, CpuRequired, DiskRequired, MemoryRequired, ResponseTime, CreationTime, ExecutionError
 
 
 class TestRun(object):
@@ -92,6 +92,10 @@ class TestRun(object):
         # Waits for the rest of the threads
         for thread, container in thread_containers:
             thread.join()
+            if not container.thrown_exception:
+                container.save_measures(session)
+            else:
+                container.save_error(session)
             container.save_measures(session)
 
         # while it is running a container consumes less disk
@@ -245,7 +249,7 @@ class RunningContainer(object):
             self.take_measures()
             self._wait(end_barrier, to_wait)
             self.stop()
-         except (NotFound, Timeout) as e:  # e.errno
+        except (NotFound, Timeout) as e:  # e.errno
             logging.error('Docker timeout: %s.' % e.message) # e.strerror)
             self.thrown_exception = e
             # Other threads might be still waiting for this barriers to be opened:
