@@ -13,6 +13,16 @@ from models import PerformanceTestDAO, Test, Run
 from benchmark import TestRun
 
 
+
+class DockerClientFactory(object):
+    def __init__(self, base_url):
+        self.base_url = base_url
+
+    def create(self):
+        return Client(self.base_url)
+        # FIXME we can reuse the client once we know for sure that it is Thread safe...
+
+
 def create_run(session, test):
     # Run(test=test) requires the same session as test for adding it
     run = Run(test_id=test.id)
@@ -20,33 +30,35 @@ def create_run(session, test):
     session.commit()
     return run
 
-def make_execution(docker_client, dao, session, db_test, db_run):
-    r = TestRun(docker_client, db_test.number_of_containers, db_test.image_id, configuration.get_jar_path())
+def make_execution(docker_factory, dao, session, db_test, db_run):
+    r = TestRun(docker_factory, db_test.number_of_containers,
+                db_test.image_id, db_test.volumes,
+                configuration.get_exposed_port(), configuration.get_jar_path())
     r.run(dao, db_run.id)
     db_run.ended = datetime.now()
     session.commit()
     logging.info('Run finished.')
 
-def run_test(docker_client, dao, session, test):
+def run_test(docker_factory, dao, session, test):
     logging.info('Running test %d.' % test.id)
     repetitions = 0
     for run in test.runs:
         repetitions += 1
         if not run.ended:
-            make_execution(docker_client, dao, session, test, run)
+            make_execution(docker_factory, dao, session, test, run)
         else:
             logging.info('Skipping already run test %d.' % test.id)
 
     for _ in range(repetitions, test.repetitions):
         logging.info('Create repetition with %d containers.' % test.number_of_containers)
         run = create_run(session, test)
-        make_execution(docker_client, dao, session, test, run)
+        make_execution(docker_factory, dao, session, test, run)
     logging.info('Finished test %d.' % test.id)
 
-def run_all(docker_client, dao):
+def run_all(docker_factory, dao):
     session = dao.create_session()
     for test in session.query(Test):
-        run_test(docker_client, dao, session, test)
+        run_test(docker_factory, dao, session, test)
 
 def entry_point():
     parser = ArgumentParser(description='Run benchmark.')
@@ -63,10 +75,10 @@ def entry_point():
     configuration.set_file_path(args.config)
 
     FORMAT = '%(asctime)-15s %(message)s'
-    logging.basicConfig(filename=configuration.get_log(args.log),level=logging.DEBUG, format=FORMAT)
+    logging.basicConfig(filename=configuration.get_log(args.log), level=logging.DEBUG, format=FORMAT)
 
     dao = PerformanceTestDAO(configuration.get_db(args.database))
-    docker = Client(configuration.get_docker_url(args.url))
+    docker = DockerClientFactory(configuration.get_docker_url(args.url))
 
     if not args.testId:
         run_all(docker, dao)
