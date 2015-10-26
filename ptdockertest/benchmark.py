@@ -20,7 +20,7 @@ class TestRun(object):
     This includes things that are only checked once (e.g., response time for the last created container) and
     differences between before and after a run.
     """
-    def __init__(self, docker_factory, number_of_containers, image_id, ipc_port, checker_jar_path):
+    def __init__(self, docker_factory, number_of_containers, image_id, volumes, ipc_port, checker_jar_path):
         self.number_of_containers = number_of_containers
         self._barriers = {
             # Barrier which ensures that the creation of all containers starts
@@ -36,6 +36,7 @@ class TestRun(object):
         self.docker_factory = docker_factory
         self.docker = self.docker_factory.create()
         self.image_id = image_id
+        self._volumes = volumes
         self._ipc_port = ipc_port
         self._checker_jar_path = '/home/agg96/JPTChecker-jar-with-dependencies.jar'
 
@@ -54,15 +55,18 @@ class TestRun(object):
 
     def _run_container(self, last_container, dao, run_id):
         # For Docker: run = create + start
-        if last_container:
-            port_bindings = { 39000: self._ipc_port, 5900: None }
-            container = self.docker.create_container(image=self.image_id, ports=list(port_bindings.keys()),
-                            host_config=self.docker.create_host_config(port_bindings=port_bindings))
-        else:
-            container = self.docker.create_container(image=self.image_id)
+        volumes = [] if not self._volumes else [v for v in self._volumes.split(',')]
+        ports = { 39000: self._ipc_port, 5900: None } if last_container else {}
+        host_config = self.docker.create_host_config(port_bindings = ports, binds = volumes)
+        container = self.docker.create_container(image = self.image_id,
+                                                 ports = list(ports.keys()),
+                                                 volumes = [v.split(':')[1] for v in volumes],
+                                                 host_config = host_config)
         db_cont = self._save_container(dao, container, run_id)
         logging.info('Container "%s" created.' % db_cont.docker_id)
-        return self._start_container_and_measure( db_cont.id, db_cont.docker_id, self.docker,
+        if container.get('Warnings'):
+            logging.debug('Warnings on the creation: ' + container.get('Warnings'))
+        return self._start_container_and_measure( db_cont.id, db_cont.docker_id, self.docker_factory,
                                                     self._barriers['ready'] if last_container else None )
 
     def run(self, dao, run_id):
