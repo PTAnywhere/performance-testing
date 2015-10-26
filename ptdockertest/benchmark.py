@@ -158,6 +158,10 @@ class RunningContainer(object):
         self.id = container_id
         self.docker_id = container_docker_id
         self.docker_client = docker_client
+        self._measure = None
+
+    def _get_measure(self):
+        return next(self.docker_client.stats(self.docker_id, decode=True))
 
     def start(self):
         start = time.time()
@@ -165,7 +169,7 @@ class RunningContainer(object):
         logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
         # naive measure
         self.elapsed = time.time() - start
-        self._pre_measure = next(self.docker_client.stats(self.docker_id, decode=True))
+        self._pre_measure = self._get_measure()
 
     def _save_cpu(self, session, total_cpu, percentual_cpu):
         c = CpuRequired(container_id=self.id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
@@ -194,9 +198,8 @@ class RunningContainer(object):
         return cpu_percent
 
     def take_measures(self):
-        stats_obj = self.docker_client.stats(self.docker_id, decode=True)
         logging.info('Measuring container "%s".' % self.docker_id)
-        self._measure = next(stats_obj)
+        self._measure = self._get_measure()
 
     def save_measures(self, session):
         logging.info('Saving container "%s" measures.' % self.docker_id)
