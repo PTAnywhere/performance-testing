@@ -15,20 +15,19 @@ class ConfigFileReader(object):
     def set_file_path(self, file_path):
         self.config.read(file_path)
 
-    def get_log(self, priotity_value=None):
-        if priotity_value: return priority_value
+    def get_log(self):
         return self.config.get('benchmark', 'log')
 
-    def get_db(self, priotity_value=None):
-        if priotity_value: return priority_value
+    def get_db(self):
         return self.config.get('benchmark', 'db')
 
-    def get_docker_url(self, priotity_value=None):
-        if priotity_value: return priority_value
+    def get_exposed_port(self):
+        return self.config.get('benchmark', 'exposed_pt_port')
+
+    def get_docker_url(self):
         return self.config.get('docker', 'url')
 
-    def get_jar_path(self, priotity_value=None):
-        if priotity_value: return priority_value
+    def get_jar_path(self):
         return self.config.get('pt_checker', 'jar_path')
 
 
