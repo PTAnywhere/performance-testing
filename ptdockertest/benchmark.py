@@ -8,6 +8,8 @@ import os
 import time
 import logging
 import subprocess
+from requests.exceptions import Timeout
+from docker.errors import NotFound
 from humanfriendly import Spinner, Timer, format_size, parse_size
 from threading import Thread
 from threading3 import Barrier
@@ -159,6 +161,7 @@ class RunningContainer(object):
         self.docker_id = container_docker_id
         self.docker_client = docker_client
         self._measure = None
+        self.thrown_exception = None
 
     def _get_measure(self):
         return next(self.docker_client.stats(self.docker_id, decode=True))
@@ -216,6 +219,10 @@ class RunningContainer(object):
         self.docker_client.remove_container(self.docker_id)
         logging.info('Removing container "%s".' % (self.docker_id))
 
+    def _wait(self, barrier, waiting_list):
+        barrier.wait()
+        waiting_list.remove(barrier)
+
     """
     Run container, measure it and close it.
 
@@ -227,14 +234,22 @@ class RunningContainer(object):
                             before all the measurements have been taken.
     """
     def run(self, all_started_barrier, end_barrier, ready_barrier=None):
-        self.start()
-        # Preference over other barriers to ensure that the response time measure thread starts first
-        if ready_barrier: ready_barrier.wait()
-        all_started_barrier.wait()
-        self.take_measures()
-        end_barrier.wait()
-        self.stop()
-
+        to_wait = [all_started_barrier, end_barrier]
+        if ready_barrier: to_wait.append(ready_barrier)
+        try:
+            self.start()
+            # Preference over other barriers to ensure that the response time measure thread starts first
+            if ready_barrier:
+                self._wait(ready_barrier, to_wait)
+            self._wait(all_started_barrier, to_wait)
+            self.take_measures()
+            self._wait(end_barrier, to_wait)
+            self.stop()
+         except (NotFound, Timeout) as e:  # e.errno
+            logging.error('Docker timeout: %s.' % e.message) # e.strerror)
+            self.thrown_exception = e
+            # Other threads might be still waiting for this barriers to be opened:
+            for w in to_wait: w.wait()
 
 def wait_at_least(seconds):
     with Spinner(label="Waiting", total=5) as spinner:
