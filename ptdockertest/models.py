@@ -20,6 +20,8 @@ class Test(Base):
     __tablename__ = 'test'
     id = Column(Integer, primary_key=True)
     image_id = Column(String(250), nullable=False)  # Docker image ID
+    # FIXME Save image specific data (e.g., volumes to be mounted) in a new table.
+    volumes = Column(String(250))  # Volumes to mount (if applicable)  # TODO define somewhere else
     number_of_containers = Column(Integer)  # Number of containers to create in the test
     repetitions = Column(Integer)  # Times the test will be repeated
     runs = relationship('Run', backref="test")
