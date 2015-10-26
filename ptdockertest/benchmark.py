@@ -215,6 +215,12 @@ class RunningContainer(object):
         self._save_start_time(session)
         session.commit()
 
+    def save_error(self, session):
+        logging.info('Saving errors in container "%s".' % self.docker_id)
+        e = ExecutionError(container_id=self.id, message=self.thrown_exception.strerror)
+        session.add(e)
+        session.commit()
+
     def stop(self):
         self.docker_client.stop(self.docker_id)
         logging.info('Stopping container "%s".' % (self.docker_id))
