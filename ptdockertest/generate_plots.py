@@ -56,11 +56,12 @@ def main(database_file, log_file):
             if run.ended:  # Ignore runs which have not ended
                 per_container = create_dictionary(contains_dicts=False, fields=(CPU_TOTAL, CPU_PERC, MEMORY, MEMORY_MAX, MEMORY_PERC))
                 for container in run.containers:
-                    per_container[CPU_TOTAL].append(container.cpu.total_cpu)
-                    per_container[CPU_PERC].append(container.cpu.percentual_cpu)
-                    per_container[MEMORY].append(container.memory.usage)
-                    per_container[MEMORY_MAX].append(container.memory.maximum)
-                    per_container[MEMORY_PERC].append(container.memory.percentual)
+                    if not container.error:
+                        per_container[CPU_TOTAL].append(container.cpu.total_cpu)
+                        per_container[CPU_PERC].append(container.cpu.percentual_cpu)
+                        per_container[MEMORY].append(container.memory.usage)
+                        per_container[MEMORY_MAX].append(container.memory.maximum)
+                        per_container[MEMORY_PERC].append(container.memory.percentual)
                 per_run[SIZE].append(run.disk.size)
                 per_run[RESPONSE_TIME].append(run.response_time.time)
                 per_run[CPU_TOTAL].append(numpy.sum(per_container[CPU_TOTAL]))
