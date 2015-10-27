@@ -92,11 +92,10 @@ class TestRun(object):
         # Waits for the rest of the threads
         for thread, container in thread_containers:
             thread.join()
-            if not container.thrown_exception:
-                container.save_measures(session)
-            else:
+            if container.thrown_exception:
                 container.save_error(session)
-            container.save_measures(session)
+            else:
+                container.save_measures(session)
 
         # while it is running a container consumes less disk
         self._save(session, run_id)
