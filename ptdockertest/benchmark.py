@@ -9,7 +9,7 @@ import time
 import logging
 import subprocess
 from requests.exceptions import Timeout
-from docker.errors import NotFound
+from docker.errors import APIError
 from humanfriendly import Spinner, Timer, format_size, parse_size
 from threading import Thread
 from threading3 import Barrier
@@ -216,7 +216,7 @@ class RunningContainer(object):
 
     def save_error(self, session):
         logging.info('Saving errors in container "%s".' % self.docker_id)
-        e = ExecutionError(container_id=self.id, message=self.thrown_exception.strerror)
+        e = ExecutionError(container_id=self.id, message=self.thrown_exception)
         session.add(e)
         session.commit()
 
@@ -225,7 +225,8 @@ class RunningContainer(object):
         logging.info('Stopping container "%s".' % (self.docker_id))
 
     def remove(self):  # Clear dist
-        self.docker_client.remove_container(self.docker_id)
+        # Force just in case stop hadn't be called properly due to an exception
+        self.docker_client.remove_container(self.docker_id, force=True)
         logging.info('Removing container "%s".' % (self.docker_id))
 
     def _wait(self, barrier, waiting_list):
@@ -254,11 +255,16 @@ class RunningContainer(object):
             self.take_measures()
             self._wait(end_barrier, to_wait)
             self.stop()
-        except (NotFound, Timeout) as e:  # e.errno
+        except Timeout as e:  # e.errno
             logging.error('Docker timeout: %s.' % e.message) # e.strerror)
-            self.thrown_exception = e
+            self.thrown_exception = e.strerror
+        except APIError as ae:
+            logging.error('Docker API exception. $s.' % ae.explanation)
+            self.thrown_exception = ae.explanation
+        finally:
             # Other threads might be still waiting for this barriers to be opened:
             for w in to_wait: w.wait()
+        
 
 def wait_at_least(seconds):
     with Spinner(label="Waiting", total=5) as spinner:
