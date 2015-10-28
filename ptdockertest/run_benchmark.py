@@ -8,19 +8,9 @@ import logging
 from argparse import ArgumentParser
 from datetime import datetime
 from config import configuration
-from docker import Client
+from docker_utils import DockerClientFactory
 from models import PerformanceTestDAO, Test, Run
 from benchmark import TestRun
-
-
-
-class DockerClientFactory(object):
-    def __init__(self, base_url):
-        self.base_url = base_url
-
-    def create(self):
-        return Client(self.base_url)
-        # FIXME we can reuse the client once we know for sure that it is Thread safe...
 
 
 def create_run(session, test):

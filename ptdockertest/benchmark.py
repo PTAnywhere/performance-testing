@@ -36,7 +36,7 @@ class TestRun(object):
             'ready': Barrier (2),  # Response time measuring thread
         };
         self.docker_factory = docker_factory
-        self.docker = self.docker_factory.create()
+        self.allocate = self.docker_factory.create()
         self.image_id = image_id
         self._volumes = volumes
         self._ipc_port = ipc_port
@@ -59,11 +59,12 @@ class TestRun(object):
         # For Docker: run = create + start
         volumes = [] if not self._volumes else [v for v in self._volumes.split(',')]
         ports = { 39000: self._ipc_port, 5900: None } if last_container else {}
-        host_config = self.docker.create_host_config(port_bindings = ports, binds = volumes)
-        container = self.docker.create_container(image = self.image_id,
-                                                 ports = list(ports.keys()),
-                                                 volumes = [v.split(':')[1] for v in volumes],
-                                                 host_config = host_config)
+        with self.allocate() as docker:
+            host_config = docker.create_host_config(port_bindings = ports, binds = volumes)
+            container = docker.create_container(image = self.image_id,
+                                                     ports = list(ports.keys()),
+                                                     volumes = [v.split(':')[1] for v in volumes],
+                                                     host_config = host_config)
         db_cont = self._save_container(dao, container, run_id)
         logging.info('Container "%s" created.' % db_cont.docker_id)
         if container.get('Warnings'):
@@ -112,15 +113,18 @@ class TestRun(object):
     def _get_disk_size(self):
         """Returns data used by Docker in bytes."""
         # docker.info() returns an awful data structure...
-        for field in self.docker.info()['DriverStatus']:
-            if field[0]=='Data Space Used':
-                return parse_size(field[1])  # Value in bytes
-        logging.error('"Data Space Used" field was not found in the data returned by Docker.')
+        with self.allocate() as docker:
+            for field in docker.info()['DriverStatus']:
+                if field[0]=='Data Space Used':
+                    return parse_size(field[1])  # Value in bytes
+            logging.error('"Data Space Used" field was not found in the data returned by Docker.')
 
     def _get_disk_size_du(self):
         """Returns in Docker's root directory size in KBs."""
          # This function requires you to run the script as sudo
-        directory = self.docker.info()['DockerRootDir']
+        directory = None
+        with self.allocate() as docker:
+            directory = docker.info()['DockerRootDir']
         ret = subprocess.check_output(['sudo', 'du', '-sk', directory])
         return int(ret.split()[0]) # Value in KBs
 
@@ -162,16 +166,18 @@ class RunningContainer(object):
     def __init__(self, container_id, container_docker_id, docker_client):
         self.id = container_id
         self.docker_id = container_docker_id
-        self.docker_client = docker_client
+        self.allocate = docker_client
         self._measure = None
         self.thrown_exception = None
 
     def _get_measure(self):
-        return next(self.docker_client.stats(self.docker_id, decode=True))
+        with self.allocate() as docker:
+            return next(docker.stats(self.docker_id, decode=True))
 
     def start(self):
         start = time.time()
-        response = self.docker_client.start(self.docker_id)
+        with self.allocate() as docker:
+            response = docker.start(self.docker_id)
         logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
         # naive measure
         self.elapsed = time.time() - start
@@ -221,12 +227,14 @@ class RunningContainer(object):
         session.commit()
 
     def stop(self):
-        self.docker_client.stop(self.docker_id)
+        with self.allocate() as docker:
+            docker.stop(self.docker_id)
         logging.info('Stopping container "%s".' % (self.docker_id))
 
     def remove(self):  # Clear dist
         # Force just in case stop hadn't be called properly due to an exception
-        self.docker_client.remove_container(self.docker_id, force=True)
+        with self.allocate() as docker:        
+            docker.remove_container(self.docker_id, force=True)
         logging.info('Removing container "%s".' % (self.docker_id))
 
     def _wait(self, barrier, waiting_list):
@@ -255,12 +263,15 @@ class RunningContainer(object):
             self.take_measures()
             self._wait(end_barrier, to_wait)
             self.stop()
-        except Timeout as e:  # e.errno
-            logging.error('Docker timeout: %s.' % e.message) # e.strerror)
-            self.thrown_exception = e.strerror
+        except Timeout as e:
+            logging.error('Docker timeout: %s.' % e.message)
+            self.thrown_exception = 'Docker client timeout'
         except APIError as ae:
-            logging.error('Docker API exception. $s.' % ae.explanation)
-            self.thrown_exception = ae.explanation
+            logging.error('Docker API exception. %s.' % ae)
+            self.thrown_exception = str(ae)
+        except:
+            logging.error('Uncaptured')
+            print 'Uncaptured!'
         finally:
             # Other threads might be still waiting for this barriers to be opened:
             for w in to_wait: w.wait()
