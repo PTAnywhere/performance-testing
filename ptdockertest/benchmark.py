@@ -244,7 +244,7 @@ class RunningContainer(object):
     """
     def run(self, all_started_barrier, end_barrier, ready_barrier=None):
         to_wait = [all_started_barrier, end_barrier]
-        if ready_barrier: to_wait.append(ready_barrier)
+        if ready_barrier: to_wait.insert(0, ready_barrier)  # The order is important here
         try:
             self.start()
             # Preference over other barriers to ensure that the response time measure thread starts first
