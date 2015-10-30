@@ -106,8 +106,10 @@ class DockerContainerMeter(object):
         previous_system = self._pre_measure['cpu_stats']['system_cpu_usage']
         post_cpu = self._measure['cpu_stats']['cpu_usage']['total_usage']
         post_system = self._measure['cpu_stats']['system_cpu_usage']
+        # Otherwise, if both are numbers are integer, the division will return an integer.
+        # Alternatively, we could use: from __future__ import division
         cpu_delta = post_cpu - previous_cpu
-        system_delta = post_system - previous_system
+        system_delta = float(post_system - previous_system)
         if system_delta > 0.0 and cpu_delta > 0.0:
             cpu_percent = (cpu_delta / system_delta) * len(self._measure['cpu_stats']['cpu_usage']['percpu_usage']) * 100.0
         return cpu_percent
