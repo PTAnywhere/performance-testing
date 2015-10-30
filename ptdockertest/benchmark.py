@@ -125,8 +125,11 @@ class TestRun(object):
         directory = None
         with self.allocate() as docker:
             directory = docker.info()['DockerRootDir']
-        ret = subprocess.check_output(['sudo', 'du', '-sk', directory])
-        return int(ret.split()[0]) # Value in KBs
+        try:
+            ret = subprocess.check_output(['sudo', 'du', '-sk', directory])
+            return int(ret.split()[0]) # Value in KBs
+        except subprocess.CalledProcessError as e:
+            logging.error('Error getting disk size using du: ' + e.output)
 
     def _record_init_disk_size(self):
         self.init_size = self._get_disk_size()
@@ -153,8 +156,12 @@ class TestRun(object):
 
     def _save(self, session, run_id):
         folder_size_increase = self._get_disk_size() - self.init_size
-        folder_size_increase_du = self._get_disk_size_du() - self.init_size_du
-        self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
+        post_size_du = self._get_disk_size_du()
+        if self.init_size_du and post_size_du:
+            folder_size_increase_du = post_size_du - self.init_size_du
+            self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
+        else:
+            logging.warning('At least one of the du measures could not be get and compared to the folder size reported by Docker.')
         self._save_disk_size(session, run_id, folder_size_increase)
         self._save_response_time(session, run_id)
 
