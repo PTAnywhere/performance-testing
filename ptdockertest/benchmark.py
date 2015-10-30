@@ -10,9 +10,10 @@ import logging
 import subprocess
 from requests.exceptions import Timeout
 from docker.errors import APIError
-from humanfriendly import Spinner, Timer, format_size, parse_size
+from humanfriendly import Spinner
 from threading import Thread
 from threading3 import Barrier
+from measures import ResponseTimeMeter, DockerMeter
 from models import Container, CpuRequired, DiskRequired, MemoryRequired, ResponseTime, CreationTime, ExecutionError
 
 
@@ -40,7 +41,8 @@ class TestRun(object):
         self.image_id = image_id
         self._volumes = volumes
         self._ipc_port = ipc_port
-        self._checker_jar_path = '/home/agg96/JPTChecker-jar-with-dependencies.jar'
+        self._rmeter = ResponseTimeMeter('/home/agg96/JPTChecker-jar-with-dependencies.jar', self._ipc_port)
+        self._dmeter = DockerMeter(self.allocate)
 
     def _save_container(self, dao, container, run_id):
         session = dao.get_session()
@@ -50,7 +52,7 @@ class TestRun(object):
         return c
 
     def _start_container_and_measure(self, container_id, docker_id, docker_factory, ready_barrier):
-        container = RunningContainer(container_id, docker_id, docker_factory.create())
+        container = RunningContainer(container_id, docker_id, docker_factory.create(), self._dmeter.get_container_meter(docker_id))
         args = (self._barriers['before_save'], self._barriers['end'], ready_barrier)
         thread = start_daemon(target=container.run, args=args, begin_barrier=self._barriers['init'])
         return thread, container
@@ -81,7 +83,7 @@ class TestRun(object):
             last_container = n+1==self.number_of_containers
             thread_containers.append( self._run_container(last_container, dao, run_id) )
 
-        start_daemon(self._measure_response_time, args=(20,),
+        start_daemon(self._rmeter.measure, args=(20,),
                         begin_barrier=self._barriers['ready'],
                         end_barrier=self._barriers['end'])
         # It ensures that containers run for at least 5 seconds
@@ -104,82 +106,34 @@ class TestRun(object):
         for _, container in thread_containers:
             container.remove()
 
-    def _measure_response_time(self, timeout):
-        logging.info('Measuring response time.')
-        ret = subprocess.check_output(['java', '-jar', self._checker_jar_path, 'localhost', str(self._ipc_port), str(timeout)])
-        self.response_time = int(ret)
-        logging.info('Response time: ' + ret)
-
-    def _get_disk_size(self):
-        """Returns data used by Docker in bytes."""
-        # docker.info() returns an awful data structure...
-        with self.allocate() as docker:
-            for field in docker.info()['DriverStatus']:
-                if field[0]=='Data Space Used':
-                    return parse_size(field[1])  # Value in bytes
-            logging.error('"Data Space Used" field was not found in the data returned by Docker.')
-
-    def _get_disk_size_du(self):
-        """Returns in Docker's root directory size in KBs."""
-         # This function requires you to run the script as sudo
-        directory = None
-        with self.allocate() as docker:
-            directory = docker.info()['DockerRootDir']
-        try:
-            ret = subprocess.check_output(['sudo', 'du', '-sk', directory])
-            return int(ret.split()[0]) # Value in KBs
-        except subprocess.CalledProcessError as e:
-            logging.error('Error getting disk size using du: ' + e.output)
-
     def _record_init_disk_size(self):
-        self.init_size = self._get_disk_size()
-        self.init_size_du = self._get_disk_size_du()
-
-    def _log_measure_comparison(self, info_measure, du_measure):
-        logging.info('Additional disk that Docker demanded (measured with docker.info()): ' + format_size(info_measure) + '.')
-        logging.info('Additional disk that Docker demanded (measured with du): ' + format_size(du_measure) + '.')
-        difference = du_measure - info_measure
-        if difference>1024:  # More than 1KB of difference
-            logging.warning('du measures %s more than docker.info().' % format_size(difference))
-        elif difference<-1024:  # Less than 1MB of difference
-            logging.warning('du measures %s less than docker.info().' % format_size(difference*-1))
+        self._dmeter.record_init_disk_size()
 
     def _save_disk_size(self, session, run_id, size):
         d = DiskRequired(run_id=run_id, size=size)
         session.add(d)
         session.commit()
 
-    def _save_response_time(self, session, run_id):
-        s = ResponseTime(run_id=run_id, time=self.response_time)
+    def _save_response_time(self, session, run_id, response_time):
+        s = ResponseTime(run_id=run_id, time=response_time)
         session.add(s)
         session.commit()
 
     def _save(self, session, run_id):
-        folder_size_increase = self._get_disk_size() - self.init_size
-        post_size_du = self._get_disk_size_du()
-        if self.init_size_du and post_size_du:
-            folder_size_increase_du = post_size_du - self.init_size_du
-            self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
-        else:
-            logging.warning('At least one of the du measures could not be get and compared to the folder size reported by Docker.')
-        self._save_disk_size(session, run_id, folder_size_increase)
-        self._save_response_time(session, run_id)
+        self._save_disk_size(session, run_id, self._dmeter.get_disk_size_increase())
+        self._save_response_time(session, run_id, self._rmeter.response_time)
 
 
 class RunningContainer(object):
     """
     It starts a container, takes measures and saves them.
     """
-    def __init__(self, container_id, container_docker_id, docker_client):
+    def __init__(self, container_id, container_docker_id, docker_client, container_meter):
         self.id = container_id
         self.docker_id = container_docker_id
         self.allocate = docker_client
-        self._measure = None
+        self._meter = container_meter
         self.thrown_exception = None
-
-    def _get_measure(self):
-        with self.allocate() as docker:
-            return next(docker.stats(self.docker_id, decode=True))
 
     def start(self):
         start = time.time()
@@ -188,42 +142,33 @@ class RunningContainer(object):
         logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
         # naive measure
         self.elapsed = time.time() - start
-        self._pre_measure = self._get_measure()
+        self._meter.initial_measure()        
 
-    def _save_cpu(self, session, total_cpu, percentual_cpu):
-        c = CpuRequired(container_id=self.id, total_cpu=total_cpu, percentual_cpu=percentual_cpu)
+    def take_measures(self):
+        logging.info('Measuring container "%s".' % self.docker_id)
+        self._meter.final_measure()
+
+    def _save_cpu(self, session):
+        c = CpuRequired( container_id = self.id,
+                         total_cpu = self._meter.get_cpu_total(),
+                         percentual_cpu = self._meter.get_cpu_percent() )
         session.add(c)
 
-    def _save_memory(self, session, mstats):
-        percent = mstats['usage'] / float(mstats['limit']) * 100.0
-        m = MemoryRequired(container_id=self.id, usage=mstats['usage'], percentual=percent, maximum=mstats['max_usage'])
+    def _save_memory(self, session):
+        m = MemoryRequired( container_id = self.id,
+                            usage = self._meter.get_memory_usage(),
+                            percentual = self._meter.get_memory_percent(),
+                            maximum = self._meter.get_memory_maximum() )
         session.add(m)
 
     def _save_start_time(self, session):
         c = CreationTime(container_id=self.id, startup_time=self.elapsed)
         session.add(c)
 
-    def _calculate_cpu_percent(self):
-        # translating it from calculateCPUPercent in https://github.com/docker/docker/blob/master/api/client/stats.go
-        cpu_percent = 0.0
-        previous_cpu = self._pre_measure['cpu_stats']['cpu_usage']['total_usage']
-        previous_system = self._pre_measure['cpu_stats']['system_cpu_usage']
-        post_cpu = self._measure['cpu_stats']['cpu_usage']['total_usage']
-        post_system = self._measure['cpu_stats']['system_cpu_usage']
-        cpu_delta = post_cpu - previous_cpu
-        system_delta = post_system - previous_system
-        if system_delta > 0.0 and cpu_delta > 0.0:
-            cpu_percent = (cpu_delta / system_delta) * len(self._measure['cpu_stats']['cpu_usage']['percpu_usage']) * 100.0
-        return cpu_percent
-
-    def take_measures(self):
-        logging.info('Measuring container "%s".' % self.docker_id)
-        self._measure = self._get_measure()
-
     def save_measures(self, session):
         logging.info('Saving container "%s" measures.' % self.docker_id)
-        self._save_cpu(session, self._measure['cpu_stats']['cpu_usage']['total_usage'], self._calculate_cpu_percent())
-        self._save_memory(session, self._measure['memory_stats'])
+        self._save_cpu(session)
+        self._save_memory(session)
         self._save_start_time(session)
         session.commit()
 
@@ -276,9 +221,12 @@ class RunningContainer(object):
         except APIError as ae:
             logging.error('Docker API exception. %s.' % ae)
             self.thrown_exception = str(ae)
-        except:
-            logging.error('Uncaptured')
-            print 'Uncaptured!'
+        except Exception as others:
+            logging.error('Unexpected exception: %s.' % others)
+            print 'Prepare yourself because everything will crash now.'
+            import sys, traceback
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback, limit=2, file=sys.stdout)
         finally:
             # Other threads might be still waiting for this barriers to be opened:
             for w in to_wait: w.wait()
