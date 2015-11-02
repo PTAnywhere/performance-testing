@@ -22,7 +22,7 @@ def create_run(session, test):
 
 def make_execution(docker_factory, dao, session, db_test, db_run):
     r = TestRun(docker_factory, db_test.number_of_containers,
-                db_test.image_id, db_test.volumes,
+                db_test.image_id, db_test.volumes_from,
                 configuration.get_exposed_port(), configuration.get_jar_path())
     r.run(dao, db_run.id)
     db_run.ended = datetime.now()
