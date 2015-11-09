@@ -32,16 +32,24 @@ public class PTChecker extends PacketTracerClient {
         super(host, port);
     }
 
-    protected long waitUntilPTResponds(int maxWaitingSeconds) throws Exception {
+    protected long waitUntilPTResponds(int maxWaitingSeconds, String filename) throws Exception {
         int waitingMs = maxWaitingSeconds * 1000;
         final long init = System.currentTimeMillis();
+        boolean alreadyOpened = filename==null;
         while (waitingMs>0) {
             final long initLoop = System.currentTimeMillis();
             try {
                 final IPC ipc = getIPC();
-                final Network network = this.ipcFactory.network(ipc);
-                final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
-                if (dev!=null) return System.currentTimeMillis() - init;  // elapsed
+                if (!alreadyOpened) {
+                    ipc.appWindow().fileOpen(filename);
+                    alreadyOpened = true;
+                }
+                if (alreadyOpened) {
+                  // Measure time only after the appropriate file has been opened.
+                  final Network network = this.ipcFactory.network(ipc);
+                  final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
+                  if (dev!=null) return System.currentTimeMillis() - init;  // elapsed
+                }
             } catch(Error|Exception e) {
                 long elapsedLoop = System.currentTimeMillis() - initLoop;
                 if (elapsedLoop<PTChecker.retryMiliseconds) Thread.sleep(PTChecker.retryMiliseconds-elapsedLoop);
@@ -64,6 +72,7 @@ public class PTChecker extends PacketTracerClient {
             System.out.println("\tport    \tan integer for the port number of the Packet Tracer instance.");
             System.out.println("\ttimeout    \t(optional, default: " + PTChecker.defaultWaitTime +
                                             ") number of seconds that the program will retry connections.");
+            System.out.println("\tfile    \t(optional) file to be opened");
         } else {
             Logger logger = Logger.getLogger("com.cisco.pt");
 
@@ -73,11 +82,15 @@ public class PTChecker extends PacketTracerClient {
             logger.setLevel(Level.OFF);
 
             int waitTime = PTChecker.defaultWaitTime;
+            String filename = null;
             if(args.length>=3) {
                 waitTime = Integer.parseInt(args[2]);
             }
+            if(args.length>=4) {
+                filename = args[3];
+            }
             final PTChecker checker = new PTChecker(args[0], Integer.parseInt(args[1]));
-            System.out.println( checker.waitUntilPTResponds(waitTime) );
+            System.out.println( checker.waitUntilPTResponds(waitTime, filename) );
 
             checker.stop();
             //checker.getAverageResponseTime(100);
