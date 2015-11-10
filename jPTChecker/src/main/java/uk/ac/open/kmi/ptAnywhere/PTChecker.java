@@ -32,26 +32,41 @@ public class PTChecker extends PacketTracerClient {
         super(host, port);
     }
 
-    protected long waitUntilPTResponds(int maxWaitingSeconds, String filename) throws Exception {
+    protected long waitUntilPTResponds(int maxWaitingSeconds, String file, String deviceName) throws Exception {
         int waitingMs = maxWaitingSeconds * 1000;
         final long init = System.currentTimeMillis();
-        boolean alreadyOpened = filename==null;
+        boolean alreadyOpened = file==null;
         while (waitingMs>0) {
             final long initLoop = System.currentTimeMillis();
             try {
                 final IPC ipc = getIPC();
                 if (!alreadyOpened) {
-                    ipc.appWindow().fileOpen(filename);
+                    // I open a new file before opening another to make sure that
+                    // I'm not testing other file opened before (e.g., if the
+                    // file opening fails, the already opened file might answer).
+                    ipc.appWindow().fileNew(false);
+                    if (file.startsWith("http://")) {
+                        ipc.appWindow().fileOpenFromURL(file);
+                    } else {
+                        ipc.appWindow().fileOpen(file);
+                    }
                     alreadyOpened = true;
                 }
                 if (alreadyOpened) {
-                  // Measure time only after the appropriate file has been opened.
-                  final Network network = this.ipcFactory.network(ipc);
-                  final CiscoDevice dev = (CiscoDevice) network.getDevice("MySwitch");
-                  if (dev!=null) return System.currentTimeMillis() - init;  // elapsed
+                    // Measure time only after the appropriate file has been opened.
+                    final Network network = this.ipcFactory.network(ipc);
+                    // Checking ends only when the device is found (if it was specified).
+                    if (deviceName!=null) {
+                        final CiscoDevice dev = (CiscoDevice) network.getDevice(deviceName);
+                        if (dev!=null) return System.currentTimeMillis() - init;  // elapsed
+                    } else {
+                        return System.currentTimeMillis() - init;  // elapsed
+                    }
                 }
             } catch(Error|Exception e) {
-                long elapsedLoop = System.currentTimeMillis() - initLoop;
+                //e.printStackTrace();
+            } finally {
+                final long elapsedLoop = System.currentTimeMillis() - initLoop;
                 if (elapsedLoop<PTChecker.retryMiliseconds) Thread.sleep(PTChecker.retryMiliseconds-elapsedLoop);
                 waitingMs -= PTChecker.retryMiliseconds;
             }
@@ -73,6 +88,7 @@ public class PTChecker extends PacketTracerClient {
             System.out.println("\ttimeout    \t(optional, default: " + PTChecker.defaultWaitTime +
                                             ") number of seconds that the program will retry connections.");
             System.out.println("\tfile    \t(optional) file to be opened");
+            System.out.println("\tdeviceToFind    \t(optional) a device which should be found in the PT instance.");
         } else {
             Logger logger = Logger.getLogger("com.cisco.pt");
 
@@ -82,15 +98,19 @@ public class PTChecker extends PacketTracerClient {
             logger.setLevel(Level.OFF);
 
             int waitTime = PTChecker.defaultWaitTime;
-            String filename = null;
-            if(args.length>=3) {
+            String file = null;
+            String deviceName = null;
+            if (args.length>=3) {
                 waitTime = Integer.parseInt(args[2]);
             }
-            if(args.length>=4) {
-                filename = args[3];
+            if (args.length>=4) {
+                file = args[3];
+            }
+            if (args.length>=5) {
+                deviceName = args[4];
             }
             final PTChecker checker = new PTChecker(args[0], Integer.parseInt(args[1]));
-            System.out.println( checker.waitUntilPTResponds(waitTime, filename) );
+            System.out.println( checker.waitUntilPTResponds(waitTime, file, deviceName) );
 
             checker.stop();
             //checker.getAverageResponseTime(100);
