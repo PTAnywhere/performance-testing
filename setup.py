@@ -22,7 +22,10 @@ setup(name="ptdockertest",
       # license = "http://www.apache.org/licenses/LICENSE-2.0",
       platforms=["any"],
       packages=["ptdockertest"],
-      install_requires=["docker-py", "SQLAlchemy", "humanfriendly", "numpy"],
+      install_requires=["docker-py", "ptchecker", "SQLAlchemy", "humanfriendly", "numpy"],
+      dependency_links=[
+      	'git+https://github.com/PTAnywhere/pt-checker.git#egg=ptchecker-0.1'
+      ],
       entry_points={
           "console_scripts": [
             "prepare-benchmark = ptdockertest.prepare_benchmark:entry_point",
