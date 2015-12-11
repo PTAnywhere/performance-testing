@@ -24,7 +24,7 @@ class ResponseTimeMeter(object):
             logging.info('Response time: ' + self.response_time)
         except Exception:
             self.response_time = -1
-            logging.info('The instance could not be contacted.')
+            logging.error('The instance could not be contacted.')
 
 
 class DockerMeter(object):

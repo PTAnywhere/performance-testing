@@ -40,7 +40,7 @@ class TestRun(object):
         self.image_id = image_id
         self._volumes_from = volumes_from
         self._ipc_port = ipc_port
-        self._rmeter = ResponseTimeMeter('/home/agg96/JPTChecker-jar-with-dependencies.jar', self._ipc_port)
+        self._rmeter = ResponseTimeMeter(checker_jar_path, self._ipc_port)
         self._dmeter = DockerMeter(self.allocate)
 
     def _save_container(self, dao, container, run_id):
