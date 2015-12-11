@@ -7,7 +7,6 @@ Benchmark: run container, measure and close.
 import os
 import time
 import logging
-import subprocess
 from requests.exceptions import Timeout
 from docker.errors import APIError
 from humanfriendly import Spinner
@@ -141,7 +140,7 @@ class RunningContainer(object):
         logging.info('Running container "%s".\n\t%s' % (self.docker_id, response))
         # naive measure
         self.elapsed = time.time() - start
-        self._meter.initial_measure()        
+        self._meter.initial_measure()
 
     def take_measures(self):
         logging.info('Measuring container "%s".' % self.docker_id)
@@ -184,7 +183,7 @@ class RunningContainer(object):
 
     def remove(self):  # Clear dist
         # Force just in case stop hadn't be called properly due to an exception
-        with self.allocate() as docker:        
+        with self.allocate() as docker:
             docker.remove_container(self.docker_id, force=True)
         logging.info('Removing container "%s".' % (self.docker_id))
 
@@ -229,7 +228,7 @@ class RunningContainer(object):
         finally:
             # Other threads might be still waiting for this barriers to be opened:
             for w in to_wait: w.wait()
-        
+
 
 def wait_at_least(seconds):
     with Spinner(label="Waiting", total=5) as spinner:

@@ -7,20 +7,24 @@ Classes to take measures.
 import logging
 import subprocess
 from humanfriendly import format_size, parse_size
+import ptchecker
 
 
 class ResponseTimeMeter(object):
-    
+
     def __init__(self, checker_jar_path, ipc_port):
         self.response_time = None
         self._jar_path = checker_jar_path
         self._port = ipc_port
 
     def measure(self, timeout):
-        logging.info('Measuring response time.')
-        ret = subprocess.check_output(['java', '-jar', self._jar_path, 'localhost', str(self._port), str(timeout)])
-        self.response_time = int(ret)
-        logging.info('Response time: ' + ret)
+        try:
+            logging.info('Measuring response time.')
+            self.response_time = ptchecker.get_roundtrip_time(self._jar_path, 'localhost', self._port, float(timeout))
+            logging.info('Response time: ' + self.response_time)
+        except Exception:
+            self.response_time = -1
+            logging.info('The instance could not be contacted.')
 
 
 class DockerMeter(object):
@@ -79,7 +83,7 @@ class DockerMeter(object):
 
 
 class DockerContainerMeter(object):
-    
+
     def __init__(self, container_id, allocate_docker):
         self.container_id = container_id
         self.allocate = allocate_docker
@@ -91,8 +95,8 @@ class DockerContainerMeter(object):
             return next(docker.stats(self.container_id, decode=True))
 
     def initial_measure(self):
-        self._pre_measure = self._get_measure()        
-    
+        self._pre_measure = self._get_measure()
+
     def final_measure(self):
         self._measure = self._get_measure()
 
