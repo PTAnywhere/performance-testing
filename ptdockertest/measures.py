@@ -22,9 +22,9 @@ class ResponseTimeMeter(object):
             logging.info('Measuring response time.')
             self.response_time = ptchecker.get_roundtrip_time(self._jar_path, 'localhost', self._port, float(timeout))
             logging.info('Response time: ' + self.response_time)
-        except Exception:
+        except ptchecker.TimeoutError as e:
             self.response_time = -1
-            logging.error('The instance could not be contacted.')
+            logging.error('The instance could not be contacted: %s.' % e)
 
 
 class DockerMeter(object):

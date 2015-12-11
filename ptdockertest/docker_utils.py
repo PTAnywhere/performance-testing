@@ -25,7 +25,7 @@ class DockerBoundedClient(object):
     def __init__(self, base_url, semaphore):
         self._semaphore = semaphore
         # FIXME we can reuse the client once we know for sure that it is Thread safe...
-        self._client = Client(base_url)
+        self._client = Client(base_url, version='1.19')
 
     @contextmanager
     def get(self):
