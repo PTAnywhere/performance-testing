@@ -66,11 +66,11 @@ class DockerMeter(object):
 
     def record_init_disk_size(self):
         self.init_size = self._get_disk_size()
-        self.init_size_du = self._get_disk_size_du()
+        #self.init_size_du = self._get_disk_size_du()
 
     def get_disk_size_increase(self):
         folder_size_increase = self._get_disk_size() - self.init_size
-        post_size_du = self._get_disk_size_du()
+        #post_size_du = self._get_disk_size_du()
         if self.init_size_du and post_size_du:
             folder_size_increase_du = post_size_du - self.init_size_du
             self._log_measure_comparison(folder_size_increase, folder_size_increase_du * 1024)
