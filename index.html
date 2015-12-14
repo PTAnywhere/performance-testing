@@ -103,7 +103,7 @@
 
       $(function() {
         new lineChart.Factory('diskChart', { scaleLabel: '<%=lineChart.humanizeSize(value, true)%>' }, results.size).build();
-        new lineChart.Factory('responseTime', { scaleLabel: '<%=lineChart.humanizeTime(value, "ms")%>' }, results.response).build();
+        new lineChart.Factory('responseTime', { scaleLabel: '<%=lineChart.humanizeTime(value, "s")%>' }, results.response).build();
         new lineChart.Factory('cpuTotal', { scaleLabel: '<%=lineChart.humanizeTime(value)%>' },  results.cpu_total).build();
         new lineChart.Factory('cpuPercentage', { scaleLabel: '<%=value%>%' }, results.cpu_percentage).build();
         mu = new lineChart.Factory('memoryUsage', { scaleLabel: '<%=lineChart.humanizeSize(value, false)%>' }).
@@ -132,28 +132,28 @@
         During the execution they require significantly less disk space.
         Note that storing the container after its execution might not be always a desired feature.
         If it is not, Docker will get rid of the resources allocated.</p>
-      <canvas id="diskChart" width="600" height="400"></canvas>
+      <canvas id="diskChart" width="800" height="400"></canvas>
 
       <h1><a id="response-time" class="anchor" href="#response-time" aria-hidden="true"><span class="octicon octicon-link"></span></a>Response time</h1>
       <p>The following chart shows the time needed to contact a Packet Tracer instance
         after its container has been started.</p>
-      <canvas id="responseTime" width="600" height="400"></canvas>
+      <canvas id="responseTime" width="800" height="400"></canvas>
 
       <h1><a id="cpu-usage" class="anchor" href="#cpu-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>CPU usage</h1>
       <h2>CPU total usage</h2>
       <p>The following chart shows the total CPU time allocated by each container during their lifetime (around 5 seconds).</p>
-      <canvas id="cpuTotal" width="600" height="400"></canvas>
+      <canvas id="cpuTotal" width="800" height="400"></canvas>
       <h2>CPU percent usage</h2>
       <p>Note that the testing machine has 16 cores. Therefore 1600% should be the upper limit.</p>
-      <canvas id="cpuPercentage" width="600" height="400"></canvas>
+      <canvas id="cpuPercentage" width="800" height="400"></canvas>
 
       <h1><a id="memory-usage" class="anchor" href="#memory-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Memory usage</h1>
       <h2>Memory usage</h2>
       <p>The following chart shows the summatory of the memory usage recorded for each container and the maximum memory usage.</p>
-      <canvas id="memoryUsage" width="600" height="400"></canvas>
+      <canvas id="memoryUsage" width="800" height="400"></canvas>
       <h2>Memory percentual usage</h2>
       <p>Note: the machine where it has been tested has 125 GiBs.</p>
-      <canvas id="memoryPercentage" width="600" height="400"></canvas>
+      <canvas id="memoryPercentage" width="800" height="400"></canvas>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/PTAnywhere/performance-testing">PTAnywhere performance testing</a> is maintained by <a href="https://github.com/PTAnywhere">PTAnywhere</a>.</span>
